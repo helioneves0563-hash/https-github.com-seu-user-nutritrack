@@ -23,6 +23,11 @@ export function AuthProvider({ children }) {
 
   useEffect(() => {
     let mounted = true;
+    const safetyTimer = setTimeout(() => {
+      if (mounted) {
+        setLoading(false);
+      }
+    }, 6000);
 
     (async () => {
       try {
@@ -59,6 +64,7 @@ export function AuthProvider({ children }) {
 
     return () => {
       mounted = false;
+      clearTimeout(safetyTimer);
       subscription?.unsubscribe();
     };
   }, []);

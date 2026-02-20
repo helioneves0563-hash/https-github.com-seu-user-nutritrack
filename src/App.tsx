@@ -8,7 +8,14 @@ import ProtectedRoute from './components/ProtectedRoute';
 
 function RootRedirect() {
   const { user, role, loading } = useAuth();
-  if (loading) return null;
+  if (loading) {
+    return (
+      <div className="screen-center">
+        <div className="loader" />
+        <p>Carregando...</p>
+      </div>
+    );
+  }
   if (!user) return <Navigate to="/login" replace />;
   if (role === 'nutricionista') return <Navigate to="/nutricionista" replace />;
   if (role === 'paciente') return <Navigate to="/paciente" replace />;
