@@ -5,7 +5,7 @@ import { auth } from '../services/supabase';
 import { useAuth } from '../context/AuthContextObj';
 
 export default function Login() {
-    const { user, role: userRole } = useAuth();
+    const { user, role: userRole, loading: authLoading } = useAuth();
 
     // Estados de navegação interna
     const [step, setStep] = useState('role'); // 'role', 'form', 'forgot', 'success'
@@ -26,10 +26,25 @@ export default function Login() {
     const [terms, setTerms] = useState(false);
     const [showPwd, setShowPwd] = useState(false);
 
-    // Se já estiver logado, redireciona (DEPOIS dos hooks)
+    // Se o auth ainda está carregando, evita redirecionamento prematuro
+    if (authLoading) {
+        return (
+            <div className="min-h-screen bg-brand-cream flex flex-col items-center justify-center">
+                <div className="w-10 h-10 border-4 border-brand-wine/30 border-t-brand-wine rounded-full animate-spin"></div>
+                <p className="mt-4 text-brand-wine font-serif font-medium">Validando acesso...</p>
+            </div>
+        );
+    }
+
+    // Se já estiver logado, redireciona quando o papel estiver resolvido
     if (user) {
-        if (userRole === 'nutricionista') return <Navigate to="/nutricionista" replace />;
-        return <Navigate to="/paciente" replace />;
+        if (userRole === 'nutricionista') {
+            return <Navigate to="/nutricionista" replace />;
+        }
+        if (userRole === 'paciente') {
+            return <Navigate to="/paciente" replace />;
+        }
+        return <Navigate to="/perfil" replace />;
     }
 
     // Ações
@@ -38,9 +53,19 @@ export default function Login() {
         setErrorMsg('');
         setLoading(true);
         try {
-            await auth.login(email, senha);
-            // O redirecionamento acontece no AuthContext via useEffect ou a gente pode forçar aqui
-            window.location.reload();
+            const loginData = await auth.login(email, senha);
+            const perfil = await auth.perfilAtual().catch(() => null);
+            const resolvedRole = perfil?.role || loginData?.user?.user_metadata?.role || null;
+
+            if (resolvedRole === 'nutricionista') {
+                window.location.href = '/nutricionista';
+                return;
+            }
+            if (resolvedRole === 'paciente') {
+                window.location.href = '/paciente';
+                return;
+            }
+            window.location.href = '/perfil';
         } catch (err) {
             setErrorMsg(err.message || 'Erro ao fazer login. Verifique suas credenciais.');
         } finally {
