@@ -1,42 +1,58 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { AuthProvider } from './context/AuthContext';
+import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
 import Login from './pages/Login';
-import DashboardNutri from './pages/DashboardNutri';
-import DashboardPaciente from './pages/DashboardPaciente';
+import NutriDashboard from './pages/NutriDashboard';
+import PacienteDashboard from './pages/PacienteDashboard';
 import Profile from './pages/Profile';
-import Evolucao from './pages/Evolucao';
-import PlanoAlimentar from './pages/PlanoAlimentar';
-import NutriPlanos from './pages/NutriPlanos';
-import NutriHistorico from './pages/NutriHistorico';
-import Layout from './components/Layout';
-import ErrorBoundary from './ErrorBoundary';
+import ProtectedRoute from './components/ProtectedRoute';
 
-function App() {
-  return (
-    <ErrorBoundary>
-      <BrowserRouter>
-        <AuthProvider>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" replace />} />
-            <Route path="/login" element={<Login />} />
-
-            <Route element={<Layout />}>
-              <Route path="/nutricionista" element={<DashboardNutri />} />
-              <Route path="/paciente" element={<DashboardPaciente />} />
-              <Route path="/perfil" element={<Profile />} />
-              <Route path="/evolucao" element={<Evolucao />} />
-              <Route path="/plano-alimentar" element={<PlanoAlimentar />} />
-              <Route path="/nutricionista/planos" element={<NutriPlanos />} />
-              <Route path="/nutricionista/historico" element={<NutriHistorico />} />
-            </Route>
-
-            {/* Rotas de legado ou não encontradas (Fallback 404) */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </AuthProvider>
-      </BrowserRouter>
-    </ErrorBoundary>
-  );
+function RootRedirect() {
+  const { user, role, loading } = useAuth();
+  if (loading) return null;
+  if (!user) return <Navigate to="/login" replace />;
+  if (role === 'nutricionista') return <Navigate to="/nutricionista" replace />;
+  if (role === 'paciente') return <Navigate to="/paciente" replace />;
+  return <Navigate to="/perfil" replace />;
 }
 
-export default App;
+export default function App() {
+  return (
+    <AuthProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/" element={<RootRedirect />} />
+          <Route path="/login" element={<Login />} />
+
+          <Route
+            path="/nutricionista"
+            element={(
+              <ProtectedRoute allowRole="nutricionista">
+                <NutriDashboard />
+              </ProtectedRoute>
+            )}
+          />
+
+          <Route
+            path="/paciente"
+            element={(
+              <ProtectedRoute allowRole="paciente">
+                <PacienteDashboard />
+              </ProtectedRoute>
+            )}
+          />
+
+          <Route
+            path="/perfil"
+            element={(
+              <ProtectedRoute>
+                <Profile />
+              </ProtectedRoute>
+            )}
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </BrowserRouter>
+    </AuthProvider>
+  );
+}

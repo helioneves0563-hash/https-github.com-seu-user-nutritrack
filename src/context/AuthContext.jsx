@@ -1,102 +1,83 @@
-import React, { useEffect, useState } from 'react';
-import { auth } from '../services/supabase';
-import { AuthContext } from './AuthContextObj';
+import React, { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { authApi } from '../services/supabase';
+
+const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
-    const [user, setUser] = useState(null);
-    const [profile, setProfile] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [roleHint, setRoleHint] = useState(() => localStorage.getItem('nt_role_hint'));
+  const [user, setUser] = useState(null);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
-        let mounted = true;
+  const refresh = async () => {
+    const session = await authApi.currentSession();
+    if (!session?.user) {
+      setUser(null);
+      setProfile(null);
+      return;
+    }
 
-        async function initSession() {
-            try {
-                const session = await auth.sessaoAtual();
-                if (session && mounted) {
-                    setUser(session.user);
-                    const p = await auth.perfilAtual();
-                    if (mounted) {
-                        setProfile(p);
-                        const resolvedRole = p?.role || session?.user?.user_metadata?.role || null;
-                        if (resolvedRole) {
-                            localStorage.setItem('nt_role_hint', resolvedRole);
-                            setRoleHint(resolvedRole);
-                        }
-                    }
-                }
-            } catch (err) {
-                console.error("[Auth] Erro ao carregar cache da sessão:", err);
-            } finally {
-                if (mounted) setLoading(false);
-            }
+    setUser(session.user);
+    const p = await authApi.currentProfile();
+    setProfile(p);
+  };
+
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      try {
+        if (!mounted) return;
+        await refresh();
+      } catch (error) {
+        console.error('[Auth] Falha ao carregar sessão:', error);
+        if (mounted) {
+          setUser(null);
+          setProfile(null);
         }
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    })();
 
-        initSession();
+    const { data: { subscription } } = authApi.onAuthChange(async (_event, session) => {
+      if (!mounted) return;
 
-        const { data: { subscription } } = auth.onAuthChange(async (event, session) => {
-            if (!mounted) return;
+      if (!session?.user) {
+        setUser(null);
+        setProfile(null);
+        return;
+      }
 
-            // O evento INITIAL_SESSION é redundante pois já rodamos initSession.
-            // Para atualizar apenas quando há login/logout ativo:
-            if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-                if (session) {
-                    setUser(session.user);
-                    try {
-                        const p = await auth.perfilAtual();
-                        if (mounted) {
-                            setProfile(p);
-                            const resolvedRole = p?.role || session?.user?.user_metadata?.role || null;
-                            if (resolvedRole) {
-                                localStorage.setItem('nt_role_hint', resolvedRole);
-                                setRoleHint(resolvedRole);
-                            }
-                        }
-                    } catch (e) {
-                        if (mounted) setProfile(null);
-                    }
-                }
-            } else if (event === 'SIGNED_OUT') {
-                setUser(null);
-                setProfile(null);
-                localStorage.removeItem('nt_role_hint');
-                setRoleHint(null);
-            }
-        });
+      setUser(session.user);
+      try {
+        const p = await authApi.currentProfile();
+        if (mounted) setProfile(p);
+      } catch (error) {
+        console.error('[Auth] Falha ao atualizar profile:', error);
+      }
+    });
 
-        // Fallback Force: Se nada rodar em 4 segundos, destrava a tela branca
-        const fallbackTimer = setTimeout(() => {
-            if (mounted && loading) {
-                console.warn("[Auth] Fallback de segurança acionado. Forçando saída do loading.");
-                setLoading(false);
-            }
-        }, 4000);
-
-        return () => {
-            mounted = false;
-            clearTimeout(fallbackTimer);
-            subscription?.unsubscribe();
-        };
-    }, []);
-
-    const value = {
-        user,
-        profile,
-        loading,
-        role: profile?.role || user?.user_metadata?.role || roleHint || null
+    return () => {
+      mounted = false;
+      subscription?.unsubscribe();
     };
+  }, []);
 
-    return (
-        <AuthContext.Provider value={value}>
-            {loading ? (
-                <div className="min-h-screen bg-brand-cream flex flex-col items-center justify-center">
-                    <div className="w-10 h-10 border-4 border-brand-wine/30 border-t-brand-wine rounded-full animate-spin"></div>
-                    <p className="mt-4 text-brand-wine font-serif font-medium">Carregando perfil...</p>
-                </div>
-            ) : (
-                children
-            )}
-        </AuthContext.Provider>
-    );
+  const value = useMemo(() => ({
+    user,
+    profile,
+    role: profile?.role || user?.user_metadata?.role || null,
+    loading,
+    login: authApi.login,
+    signupNutri: authApi.signupNutri,
+    signupPaciente: authApi.signupPaciente,
+    logout: authApi.logout,
+    refresh
+  }), [user, profile, loading]);
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+}
+
+export function useAuth() {
+  return useContext(AuthContext);
 }
