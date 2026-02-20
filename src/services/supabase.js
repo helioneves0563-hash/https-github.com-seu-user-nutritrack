@@ -127,6 +127,20 @@ function normalizeMeals(meals = []) {
   }));
 }
 
+async function withTimeout(promise, ms = 12000, message = 'Tempo de resposta excedido') {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 const realSupabase = USE_SUPABASE ? createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
 function createLocalSupabaseProxy() {
@@ -710,34 +724,100 @@ export const feedbacks = {
 };
 
 export const nutricionistas = {
-  async listarPacientes() {
+  async meuPerfil() {
     if (USE_SUPABASE) {
       const { data: userData } = await realSupabase.auth.getUser();
+      if (!userData.user) return null;
+
+      let { data, error } = await withTimeout(realSupabase
+        .from('nutricionistas')
+        .select('*')
+        .eq('profile_id', userData.user.id)
+        .maybeSingle());
+
+      if (error) throw new Error(error.message);
+      if (!data) {
+        const fallbackCode = `NUTRI-${userData.user.id.slice(0, 6).toUpperCase()}`;
+        const { error: upsertErr } = await withTimeout(realSupabase
+          .from('nutricionistas')
+          .upsert({ profile_id: userData.user.id, codigo_convite: fallbackCode }, { onConflict: 'profile_id' }));
+        if (upsertErr) throw new Error(upsertErr.message);
+
+        const result = await withTimeout(realSupabase
+          .from('nutricionistas')
+          .select('*')
+          .eq('profile_id', userData.user.id)
+          .maybeSingle());
+        data = result.data;
+        error = result.error;
+        if (error) throw new Error(error.message);
+      }
+
+      return data;
+    }
+
+    const user = getCurrentLocalUser();
+    return user?.nutricionista || null;
+  },
+
+  async listarPacientes() {
+    if (USE_SUPABASE) {
+      const { data: userData } = await withTimeout(realSupabase.auth.getUser());
       if (!userData.user) return [];
 
-      const { data: nutriData, error: nutriErr } = await realSupabase
+      let { data: nutriData, error: nutriErr } = await withTimeout(realSupabase
         .from('nutricionistas')
         .select('id')
         .eq('profile_id', userData.user.id)
-        .single();
+        .maybeSingle());
+
+      if (!nutriData) {
+        const fallbackCode = `NUTRI-${userData.user.id.slice(0, 6).toUpperCase()}`;
+        const { error: upsertErr } = await withTimeout(realSupabase
+          .from('nutricionistas')
+          .upsert({ profile_id: userData.user.id, codigo_convite: fallbackCode }, { onConflict: 'profile_id' }));
+        if (upsertErr) throw new Error(upsertErr.message);
+
+        const result = await withTimeout(realSupabase
+          .from('nutricionistas')
+          .select('id')
+          .eq('profile_id', userData.user.id)
+          .maybeSingle());
+        nutriData = result.data;
+        nutriErr = result.error;
+      }
 
       if (nutriErr || !nutriData) return [];
 
-      const { data, error } = await realSupabase
+      const { data: pacientesData, error } = await withTimeout(realSupabase
         .from('pacientes')
-        .select(`
-          *,
-          profiles (id, nome, sobrenome, avatar_url, email),
-          registros_refeicoes (
-            id, tipo, descricao, foto_url, created_at,
-            feedbacks (id, comentario, texto)
-          )
-        `)
+        .select('id, profile_id, created_at, profiles (id, nome, sobrenome, avatar_url, email)')
         .eq('id_nutricionista', nutriData.id)
-        .order('created_at', { ascending: false });
+        .order('created_at', { ascending: false }));
 
       if (error) throw new Error(error.message);
-      return data || [];
+      const pacientes = pacientesData || [];
+      const idsPacientes = pacientes.map((p) => p.id).filter(Boolean);
+      if (idsPacientes.length === 0) return pacientes;
+
+      const { data: registrosData, error: registrosErr } = await withTimeout(realSupabase
+        .from('registros_refeicoes')
+        .select('id, paciente_id, tipo, descricao, foto_url, created_at, feedbacks (id, comentario, texto)')
+        .in('paciente_id', idsPacientes)
+        .order('created_at', { ascending: false }));
+
+      if (registrosErr) throw new Error(registrosErr.message);
+
+      const registrosByPaciente = (registrosData || []).reduce((acc, item) => {
+        if (!acc[item.paciente_id]) acc[item.paciente_id] = [];
+        acc[item.paciente_id].push(item);
+        return acc;
+      }, {});
+
+      return pacientes.map((paciente) => ({
+        ...paciente,
+        registros_refeicoes: registrosByPaciente[paciente.id] || []
+      }));
     }
 
     const state = loadState();

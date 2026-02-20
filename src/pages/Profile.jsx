@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Camera, Copy, CheckCircle2, Check, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../context/AuthContextObj';
-import { auth, supabase } from '../services/supabase';
+import { auth, nutricionistas, supabase } from '../services/supabase';
 import { useNavigate } from 'react-router-dom';
 
 export default function Profile() {
@@ -19,6 +19,7 @@ export default function Profile() {
     const [membroDesde, setMembroDesde] = useState('Janeiro de 2026');
     const [pacientesAtivos, setPacientesAtivos] = useState(0);
     const [email, setEmail] = useState('');
+    const [nutriProfile, setNutriProfile] = useState(null);
 
     const [activeTab, setActiveTab] = useState('dados');
     const [copied, setCopied] = useState(false);
@@ -28,6 +29,25 @@ export default function Profile() {
     const [editValue, setEditValue] = useState("");
 
     useEffect(() => {
+        let active = true;
+        async function loadNutri() {
+            if (role !== 'nutricionista') return;
+            try {
+                const n = await nutricionistas.meuPerfil();
+                if (active) setNutriProfile(n || null);
+            } catch (error) {
+                console.error('Erro ao carregar perfil da nutricionista:', error);
+            }
+        }
+        loadNutri();
+        return () => {
+            active = false;
+        };
+    }, [role]);
+
+    useEffect(() => {
+        const currentNutri = nutriProfile || profile?.nutricionistas?.[0] || null;
+
         if (profile) {
             setNome(profile.nome || '');
             setSobrenome(profile.sobrenome || '');
@@ -37,8 +57,8 @@ export default function Profile() {
                 setEmail(user.email);
             }
 
-            if (role === 'nutricionista' && profile.nutricionistas?.[0]) {
-                const n = profile.nutricionistas[0];
+            if (role === 'nutricionista' && currentNutri) {
+                const n = currentNutri;
                 setCrn(n.crn || '');
                 setCodigoConvite(n.codigo_convite || '');
                 if (n.created_at) {
@@ -51,15 +71,15 @@ export default function Profile() {
             }
 
             // Conta quantos pacientes a nutricionista tem
-            if (role === 'nutricionista' && profile.nutricionistas?.[0]) {
-                const nutriId = profile.nutricionistas[0].id;
+            if (role === 'nutricionista' && currentNutri?.id) {
+                const nutriId = currentNutri.id;
                 supabase.from('pacientes').select('*', { count: 'exact', head: true }).eq('id_nutricionista', nutriId)
                     .then(({ count }) => {
                         if (count !== null) setPacientesAtivos(count);
                     });
             }
         }
-    }, [profile, role, user]);
+    }, [profile, role, user, nutriProfile]);
 
     const handleCopy = () => {
         navigator.clipboard.writeText(codigoConvite);

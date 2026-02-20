@@ -16,22 +16,29 @@ export default function DashboardNutri() {
     const [isLoading, setIsLoading] = useState(true);
     const [feedbackDrafts, setFeedbackDrafts] = useState({});
     const [sendingFeedbackId, setSendingFeedbackId] = useState(null);
+    const [inviteCode, setInviteCode] = useState('');
 
     // Auto-fix legacy nutritionists without invite code
     useEffect(() => {
         const checkAndFixInviteCode = async () => {
-            const nutri = profile?.nutricionistas?.[0];
-            if (nutri && !nutri.codigo_convite) {
-                const generatedCode = `NUTRI-${nutri.id.substring(0, 6).toUpperCase()}`;
-                try {
-                    await supabase
-                        .from('nutricionistas')
-                        .update({ codigo_convite: generatedCode })
-                        .eq('id', nutri.id);
-                    console.log('Legacy invite code fixed:', generatedCode);
-                } catch (err) {
-                    console.error('Falha ao atualizar código legado:', err);
+            try {
+                const nutri = await nutricionistas.meuPerfil();
+                if (!nutri) return;
+
+                if (nutri.codigo_convite) {
+                    setInviteCode(nutri.codigo_convite);
+                    return;
                 }
+
+                const generatedCode = `NUTRI-${nutri.id.substring(0, 6).toUpperCase()}`;
+                await supabase
+                    .from('nutricionistas')
+                    .update({ codigo_convite: generatedCode })
+                    .eq('id', nutri.id);
+                setInviteCode(generatedCode);
+                console.log('Legacy invite code fixed:', generatedCode);
+            } catch (err) {
+                console.error('Falha ao atualizar código legado:', err);
             }
         };
         checkAndFixInviteCode();
@@ -133,12 +140,12 @@ export default function DashboardNutri() {
                         <div>
                             <div className="text-[0.6rem] uppercase tracking-wider text-white/70 font-bold mb-0.5">Seu Código de Convite</div>
                             <div className="font-mono text-sm tracking-wide font-semibold text-[#F6EDE8]">
-                                {profile?.nutricionistas?.[0]?.codigo_convite || `NUTRI-${profile?.nutricionistas?.[0]?.id?.substring(0, 6) || "NOVO"}`}
+                                {inviteCode || profile?.nutricionistas?.[0]?.codigo_convite || `NUTRI-${profile?.nutricionistas?.[0]?.id?.substring(0, 6) || "NOVO"}`}
                             </div>
                         </div>
                         <button
                             onClick={(e) => {
-                                const codigo = profile?.nutricionistas?.[0]?.codigo_convite || `NUTRI-${profile?.nutricionistas?.[0]?.id?.substring(0, 6) || "NOVO"}`;
+                                const codigo = inviteCode || profile?.nutricionistas?.[0]?.codigo_convite || `NUTRI-${profile?.nutricionistas?.[0]?.id?.substring(0, 6) || "NOVO"}`;
                                 navigator.clipboard.writeText(codigo);
                                 const btn = e.currentTarget;
                                 const originalHtml = btn.innerHTML;

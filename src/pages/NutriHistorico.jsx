@@ -20,28 +20,41 @@ export default function NutriHistorico() {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [loading, setLoading] = useState(true);
   const [historico, setHistorico] = useState([]);
+  const [loadError, setLoadError] = useState('');
 
   useEffect(() => {
+    let active = true;
     async function loadPatients() {
       setLoading(true);
+      setLoadError('');
       try {
         const data = await nutricionistas.listarPacientes();
         const mapped = (data || []).map((p) => ({
           id: p.id,
           nome: `${p.profiles?.nome || 'Paciente'} ${p.profiles?.sobrenome || ''}`.trim()
         }));
+        if (!active) return;
         setPatients(mapped);
 
         const fromQuery = searchParams.get('pacienteId');
         const fallback = mapped[0]?.id || '';
         const valid = mapped.some((p) => p.id === fromQuery) ? fromQuery : fallback;
         setSelectedPatientId(valid);
+      } catch (error) {
+        if (!active) return;
+        console.error('Erro ao carregar pacientes no histórico:', error);
+        setPatients([]);
+        setSelectedPatientId('');
+        setLoadError(error?.message || 'Não foi possível carregar pacientes.');
       } finally {
-        setLoading(false);
+        if (active) setLoading(false);
       }
     }
 
     loadPatients();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -50,12 +63,17 @@ export default function NutriHistorico() {
     setSearchParams({ pacienteId: selectedPatientId });
 
     async function loadHistory() {
-      const list = await nutricionistas.historicoPaciente(selectedPatientId);
-      setHistorico(list || []);
+      try {
+        const list = await nutricionistas.historicoPaciente(selectedPatientId);
+        setHistorico(list || []);
+      } catch (error) {
+        console.error('Erro ao carregar histórico do paciente:', error);
+        setHistorico([]);
+      }
     }
 
     loadHistory();
-  }, [selectedPatientId]);
+  }, [selectedPatientId, setSearchParams]);
 
   const patientName = useMemo(
     () => patients.find((p) => p.id === selectedPatientId)?.nome || 'Paciente',
@@ -64,6 +82,33 @@ export default function NutriHistorico() {
 
   if (loading) {
     return <div className="p-8 text-sm text-brand-muted">Carregando histórico...</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 md:p-8">
+        <div className="bg-white border border-brand-border rounded-2xl p-5 text-sm text-brand-muted">
+          <div className="font-semibold text-brand-charcoal mb-2">Falha ao carregar pacientes</div>
+          <div>{loadError}</div>
+          <button
+            onClick={() => navigate('/nutricionista')}
+            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-wine text-white text-xs font-semibold"
+          >
+            <ArrowLeft size={14} /> Voltar ao painel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (patients.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 md:p-8">
+        <div className="bg-white border border-brand-border rounded-2xl p-5 text-sm text-brand-muted">
+          Você ainda não possui pacientes vinculados.
+        </div>
+      </div>
+    );
   }
 
   return (

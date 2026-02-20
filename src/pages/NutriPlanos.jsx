@@ -19,31 +19,44 @@ export default function NutriPlanos() {
   const [selectedPatientId, setSelectedPatientId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState('');
   const [title, setTitle] = useState('Plano alimentar');
   const [goal, setGoal] = useState('');
   const [meals, setMeals] = useState([emptyMeal()]);
 
   useEffect(() => {
+    let active = true;
     async function loadPatients() {
       setIsLoading(true);
+      setLoadError('');
       try {
         const data = await nutricionistas.listarPacientes();
         const mapped = (data || []).map((p) => ({
           id: p.id,
           nome: `${p.profiles?.nome || 'Paciente'} ${p.profiles?.sobrenome || ''}`.trim()
         }));
+        if (!active) return;
         setPatients(mapped);
 
         const fromQuery = searchParams.get('pacienteId');
         const fallbackId = mapped[0]?.id || '';
         const id = mapped.some((p) => p.id === fromQuery) ? fromQuery : fallbackId;
         setSelectedPatientId(id);
+      } catch (error) {
+        if (!active) return;
+        console.error('Erro ao carregar pacientes na tela de planos:', error);
+        setPatients([]);
+        setSelectedPatientId('');
+        setLoadError(error?.message || 'Não foi possível carregar pacientes.');
       } finally {
-        setIsLoading(false);
+        if (active) setIsLoading(false);
       }
     }
 
     loadPatients();
+    return () => {
+      active = false;
+    };
   }, []);
 
   useEffect(() => {
@@ -52,21 +65,28 @@ export default function NutriPlanos() {
     setSearchParams({ pacienteId: selectedPatientId });
 
     async function loadPlan() {
-      const plano = await nutricionistas.planoPaciente(selectedPatientId);
-      if (!plano) {
+      try {
+        const plano = await nutricionistas.planoPaciente(selectedPatientId);
+        if (!plano) {
+          setTitle('Plano alimentar');
+          setGoal('');
+          setMeals([emptyMeal()]);
+          return;
+        }
+
+        setTitle(plano.titulo || 'Plano alimentar');
+        setGoal(plano.objetivo || '');
+        setMeals(plano.meals?.length ? plano.meals : [emptyMeal()]);
+      } catch (error) {
+        console.error('Erro ao carregar plano do paciente:', error);
         setTitle('Plano alimentar');
         setGoal('');
         setMeals([emptyMeal()]);
-        return;
       }
-
-      setTitle(plano.titulo || 'Plano alimentar');
-      setGoal(plano.objetivo || '');
-      setMeals(plano.meals?.length ? plano.meals : [emptyMeal()]);
     }
 
     loadPlan();
-  }, [selectedPatientId]);
+  }, [selectedPatientId, setSearchParams]);
 
   const patientName = useMemo(
     () => patients.find((p) => p.id === selectedPatientId)?.nome || 'Paciente',
@@ -120,6 +140,33 @@ export default function NutriPlanos() {
 
   if (isLoading) {
     return <div className="p-8 text-sm text-brand-muted">Carregando pacientes...</div>;
+  }
+
+  if (loadError) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 md:p-8">
+        <div className="bg-white border border-brand-border rounded-2xl p-5 text-sm text-brand-muted">
+          <div className="font-semibold text-brand-charcoal mb-2">Falha ao carregar pacientes</div>
+          <div>{loadError}</div>
+          <button
+            onClick={() => navigate('/nutricionista')}
+            className="mt-4 inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-brand-wine text-white text-xs font-semibold"
+          >
+            <ArrowLeft size={14} /> Voltar ao painel
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (patients.length === 0) {
+    return (
+      <div className="max-w-3xl mx-auto p-6 md:p-8">
+        <div className="bg-white border border-brand-border rounded-2xl p-5 text-sm text-brand-muted">
+          Você ainda não possui pacientes vinculados.
+        </div>
+      </div>
+    );
   }
 
   return (
