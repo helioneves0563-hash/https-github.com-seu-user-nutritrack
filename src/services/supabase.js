@@ -2,12 +2,15 @@ import { createClient } from '@supabase/supabase-js';
 
 const url = import.meta.env.VITE_SUPABASE_URL;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+const hasSupabaseConfig = Boolean(url && anonKey);
 
-if (!url || !anonKey) {
-  throw new Error('Configure VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no ambiente.');
+export const supabase = hasSupabaseConfig ? createClient(url, anonKey) : null;
+
+function assertSupabaseConfigured() {
+  if (!supabase) {
+    throw new Error('Projeto sem configuração Supabase no ambiente. Defina VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY no Vercel.');
+  }
 }
-
-export const supabase = createClient(url, anonKey);
 
 function fallbackEmail(user) {
   return user?.email || `${user?.id || 'user'}@local.invalid`;
@@ -18,6 +21,7 @@ function buildInviteCode(userId) {
 }
 
 async function ensureProfile(user, forcedRole = null) {
+  assertSupabaseConfigured();
   if (!user?.id) return null;
 
   const metadata = user.user_metadata || {};
@@ -102,6 +106,7 @@ async function ensureProfile(user, forcedRole = null) {
 }
 
 async function signInAndEnsure(email, password, role) {
+  assertSupabaseConfigured();
   const signIn = await supabase.auth.signInWithPassword({ email, password });
   if (signIn.error) throw new Error(signIn.error.message);
   const user = signIn.data.user;
@@ -111,28 +116,33 @@ async function signInAndEnsure(email, password, role) {
 
 export const authApi = {
   async currentSession() {
+    if (!supabase) return null;
     const { data, error } = await supabase.auth.getSession();
     if (error) throw new Error(error.message);
     return data.session;
   },
 
   async currentUser() {
+    if (!supabase) return null;
     const { data, error } = await supabase.auth.getUser();
     if (error) throw new Error(error.message);
     return data.user;
   },
 
   async currentProfile() {
+    if (!supabase) return null;
     const user = await this.currentUser();
     if (!user) return null;
     return ensureProfile(user);
   },
 
   async login(email, password) {
+    assertSupabaseConfigured();
     return signInAndEnsure(email, password, null);
   },
 
   async signupNutri(payload) {
+    assertSupabaseConfigured();
     const { nome, sobrenome, email, senha, crn, especialidade } = payload;
 
     const signUp = await supabase.auth.signUp({
@@ -155,6 +165,7 @@ export const authApi = {
   },
 
   async signupPaciente(payload) {
+    assertSupabaseConfigured();
     const { nome, sobrenome, email, senha, telefone, codigoConvite } = payload;
 
     const signUp = await supabase.auth.signUp({
@@ -177,17 +188,26 @@ export const authApi = {
   },
 
   async logout() {
+    if (!supabase) return;
     const { error } = await supabase.auth.signOut();
     if (error) throw new Error(error.message);
   },
 
   onAuthChange(cb) {
+    if (!supabase) {
+      return {
+        data: {
+          subscription: { unsubscribe: () => {} }
+        }
+      };
+    }
     return supabase.auth.onAuthStateChange(cb);
   }
 };
 
 export const nutriApi = {
   async me() {
+    assertSupabaseConfigured();
     const user = await authApi.currentUser();
     if (!user) return null;
 
@@ -202,6 +222,7 @@ export const nutriApi = {
   },
 
   async patients() {
+    assertSupabaseConfigured();
     const me = await this.me();
     if (!me?.id) return [];
 
@@ -216,6 +237,7 @@ export const nutriApi = {
   },
 
   async activePlan(pacienteId) {
+    assertSupabaseConfigured();
     const { data, error } = await supabase
       .from('planos_alimentares')
       .select('*')
@@ -230,6 +252,7 @@ export const nutriApi = {
   },
 
   async savePlan(pacienteId, titulo, observacoes) {
+    assertSupabaseConfigured();
     const me = await this.me();
     if (!me?.id) throw new Error('Nutricionista não encontrada.');
 
@@ -257,6 +280,7 @@ export const nutriApi = {
   },
 
   async history(pacienteId) {
+    assertSupabaseConfigured();
     const { data, error } = await supabase
       .from('registros_refeicoes')
       .select('id, tipo, descricao, foto_url, created_at, feedbacks(id, comentario, texto, created_at)')
@@ -270,6 +294,7 @@ export const nutriApi = {
 
 export const pacienteApi = {
   async me() {
+    assertSupabaseConfigured();
     const user = await authApi.currentUser();
     if (!user) return null;
 
@@ -284,6 +309,7 @@ export const pacienteApi = {
   },
 
   async myPlan() {
+    assertSupabaseConfigured();
     const me = await this.me();
     if (!me?.id) return null;
 
@@ -301,6 +327,7 @@ export const pacienteApi = {
   },
 
   async myHistory() {
+    assertSupabaseConfigured();
     const me = await this.me();
     if (!me?.id) return [];
 
