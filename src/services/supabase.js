@@ -415,10 +415,70 @@ export const auth = {
       const { data: userData } = await realSupabase.auth.getUser();
       if (!userData.user) return null;
 
+      const user = userData.user;
+      const metadata = user.user_metadata || {};
+
+      const ensureProfileAndRoleRows = async () => {
+        // Garante profile (caso trigger não tenha rodado corretamente)
+        const { data: profileExists } = await realSupabase
+          .from('profiles')
+          .select('id, role')
+          .eq('id', user.id)
+          .maybeSingle();
+
+        if (!profileExists) {
+          await realSupabase.from('profiles').insert({
+            id: user.id,
+            role: metadata.role || 'paciente',
+            nome: metadata.nome || '',
+            sobrenome: metadata.sobrenome || '',
+            email: user.email || '',
+            telefone: metadata.telefone || null
+          });
+        }
+
+        const role = profileExists?.role || metadata.role;
+
+        if (role === 'nutricionista') {
+          const fallbackCode = `NUTRI-${user.id.slice(0, 6).toUpperCase()}`;
+          await realSupabase
+            .from('nutricionistas')
+            .upsert({
+              profile_id: user.id,
+              crn: metadata.crn || null,
+              especialidade: metadata.especialidade || null,
+              clinica: metadata.clinica || null,
+              codigo_convite: fallbackCode
+            }, { onConflict: 'profile_id' });
+        }
+
+        if (role === 'paciente') {
+          let idNutricionista = null;
+          const codigo = (metadata.codigo_convite || '').trim().toUpperCase();
+          if (codigo) {
+            const { data: nutriByCode } = await realSupabase
+              .from('nutricionistas')
+              .select('id')
+              .eq('codigo_convite', codigo)
+              .maybeSingle();
+            idNutricionista = nutriByCode?.id || null;
+          }
+
+          await realSupabase
+            .from('pacientes')
+            .upsert({
+              profile_id: user.id,
+              id_nutricionista: idNutricionista
+            }, { onConflict: 'profile_id' });
+        }
+      };
+
+      await ensureProfileAndRoleRows();
+
       const { data, error } = await realSupabase
         .from('profiles')
         .select('*, nutricionistas(*), pacientes(*)')
-        .eq('id', userData.user.id)
+        .eq('id', user.id)
         .single();
 
       if (error) throw new Error(error.message);
