@@ -13,8 +13,8 @@ export default function Profile() {
     const [sobrenome, setSobrenome] = useState('');
     const [telefone, setTelefone] = useState('');
     const [crn, setCrn] = useState('');
-    const [especialidade, setEspecialidade] = useState('Nutrição clínica');
-    const [clinica, setClinica] = useState('Clínica Vida Saudável');
+    const [especialidade, setEspecialidade] = useState('');
+    const [clinica, setClinica] = useState('');
     const [codigoConvite, setCodigoConvite] = useState('');
     const [membroDesde, setMembroDesde] = useState('Janeiro de 2026');
     const [pacientesAtivos, setPacientesAtivos] = useState(0);
@@ -68,6 +68,11 @@ export default function Profile() {
                 }
                 setEspecialidade(n.especialidade || 'Nutrição clínica');
                 setClinica(n.clinica || 'Não informada');
+            } else {
+                setCrn('');
+                setCodigoConvite('');
+                setEspecialidade('');
+                setClinica('');
             }
 
             // Conta quantos pacientes a nutricionista tem
@@ -180,11 +185,13 @@ export default function Profile() {
                     <div className="relative z-10 text-white flex-1">
                         <h2 className="text-xl font-serif tracking-wide text-white drop-shadow-sm font-bold">{nome} {sobrenome}</h2>
                         <p className="text-[0.65rem] font-medium opacity-90 mt-1 uppercase tracking-widest text-[#F2D6D6]">
-                            {especialidade} · CRN {crn || 'Não informado'}
+                            {role === 'nutricionista' ? `${especialidade || 'NUTRICIONISTA'} · CRN ${crn || 'NÃO INFORMADO'}` : 'PACIENTE'}
                         </p>
                         <div className="mt-4 bg-[#8E1A1A]/80 backdrop-blur-md border border-[#B76464]/50 rounded-full px-3 py-1 flex items-center gap-1.5 w-fit shadow-sm">
                             <ShieldCheck size={14} className="text-white" />
-                            <span className="text-[0.65rem] font-bold tracking-wider text-white">Perfil verificado</span>
+                            <span className="text-[0.65rem] font-bold tracking-wider text-white">
+                                {role === 'nutricionista' ? 'Perfil verificado' : 'Conta ativa'}
+                            </span>
                         </div>
                     </div>
                 </div>
@@ -215,7 +222,7 @@ export default function Profile() {
                                 {renderListItem('Nome completo', `${nome} ${sobrenome}`, 'nome_completo')}
                                 {renderListItem('E-mail', <span className="text-blue-600 font-bold">{email}</span>, 'email', false)}
                                 {renderListItem('Telefone', telefone || 'Não informado', 'telefone')}
-                                {renderListItem('CRN', crn || 'Não informado', 'crn')}
+                                {role === 'nutricionista' && renderListItem('CRN', crn || 'Não informado', 'crn')}
                             </div>
 
                             {role === 'nutricionista' && (
