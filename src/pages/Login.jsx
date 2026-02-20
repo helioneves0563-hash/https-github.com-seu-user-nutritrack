@@ -56,6 +56,9 @@ export default function Login() {
             const loginData = await auth.login(email, senha);
             const perfil = await auth.perfilAtual().catch(() => null);
             const resolvedRole = perfil?.role || loginData?.user?.user_metadata?.role || null;
+            if (resolvedRole) {
+                localStorage.setItem('nt_role_hint', resolvedRole);
+            }
 
             if (resolvedRole === 'nutricionista') {
                 window.location.href = '/nutricionista';

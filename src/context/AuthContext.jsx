@@ -6,6 +6,7 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null);
     const [profile, setProfile] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [roleHint, setRoleHint] = useState(() => localStorage.getItem('nt_role_hint'));
 
     useEffect(() => {
         let mounted = true;
@@ -16,7 +17,14 @@ export function AuthProvider({ children }) {
                 if (session && mounted) {
                     setUser(session.user);
                     const p = await auth.perfilAtual();
-                    if (mounted) setProfile(p);
+                    if (mounted) {
+                        setProfile(p);
+                        const resolvedRole = p?.role || session?.user?.user_metadata?.role || null;
+                        if (resolvedRole) {
+                            localStorage.setItem('nt_role_hint', resolvedRole);
+                            setRoleHint(resolvedRole);
+                        }
+                    }
                 }
             } catch (err) {
                 console.error("[Auth] Erro ao carregar cache da sessão:", err);
@@ -37,7 +45,14 @@ export function AuthProvider({ children }) {
                     setUser(session.user);
                     try {
                         const p = await auth.perfilAtual();
-                        if (mounted) setProfile(p);
+                        if (mounted) {
+                            setProfile(p);
+                            const resolvedRole = p?.role || session?.user?.user_metadata?.role || null;
+                            if (resolvedRole) {
+                                localStorage.setItem('nt_role_hint', resolvedRole);
+                                setRoleHint(resolvedRole);
+                            }
+                        }
                     } catch (e) {
                         if (mounted) setProfile(null);
                     }
@@ -45,6 +60,8 @@ export function AuthProvider({ children }) {
             } else if (event === 'SIGNED_OUT') {
                 setUser(null);
                 setProfile(null);
+                localStorage.removeItem('nt_role_hint');
+                setRoleHint(null);
             }
         });
 
@@ -67,7 +84,7 @@ export function AuthProvider({ children }) {
         user,
         profile,
         loading,
-        role: profile?.role || user?.user_metadata?.role || null // fallback
+        role: profile?.role || user?.user_metadata?.role || roleHint || null
     };
 
     return (
