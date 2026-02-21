@@ -4,6 +4,9 @@ import { useAuth } from '../context/AuthContext';
 
 export default function ProtectedRoute({ children, allowRole = null }) {
   const { user, role, loading } = useAuth();
+  const manualAuth = typeof window !== 'undefined'
+    ? window.sessionStorage.getItem('nt_manual_auth') === '1'
+    : false;
 
   if (loading) {
     return (
@@ -14,7 +17,7 @@ export default function ProtectedRoute({ children, allowRole = null }) {
     );
   }
 
-  if (!user) return <Navigate to="/login" replace />;
+  if (!user || !manualAuth) return <Navigate to="/login" replace />;
   if (allowRole && role !== allowRole) return <Navigate to="/" replace />;
 
   return children;

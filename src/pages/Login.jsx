@@ -1,9 +1,12 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 
 export default function Login() {
-  const { user, role, loading, login, signupNutri, signupPaciente } = useAuth();
+  const { user, role, loading, login, signupNutri, signupPaciente, logout } = useAuth();
+  const manualAuth = typeof window !== 'undefined'
+    ? window.sessionStorage.getItem('nt_manual_auth') === '1'
+    : false;
 
   const [mode, setMode] = useState('login');
   const [tipoCadastro, setTipoCadastro] = useState('paciente');
@@ -20,7 +23,13 @@ export default function Login() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
 
-  if (!loading && user) {
+  useEffect(() => {
+    if (!loading && user && !manualAuth) {
+      logout().catch(() => {});
+    }
+  }, [loading, user, manualAuth, logout]);
+
+  if (!loading && user && manualAuth) {
     if (role === 'nutricionista') return <Navigate to="/nutricionista" replace />;
     if (role === 'paciente') return <Navigate to="/paciente" replace />;
     return <Navigate to="/perfil" replace />;
@@ -36,6 +45,7 @@ export default function Login() {
     try {
       if (mode === 'login') {
         await login(form.email, form.senha);
+        window.sessionStorage.setItem('nt_manual_auth', '1');
         return;
       }
 
@@ -58,6 +68,7 @@ export default function Login() {
           codigoConvite: form.codigoConvite
         });
       }
+      window.sessionStorage.setItem('nt_manual_auth', '1');
     } catch (err) {
       setError(err.message || 'Erro ao processar solicitação.');
     } finally {

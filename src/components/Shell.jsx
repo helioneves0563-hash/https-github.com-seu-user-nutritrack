@@ -14,6 +14,8 @@ export default function Shell({ children }) {
   const notifRef = useRef(null);
 
   const onLogout = async () => {
+    window.sessionStorage.removeItem('nt_manual_auth');
+
     // Redireciona imediatamente, sem depender da resposta da API.
     navigate('/login', { replace: true });
     window.location.href = '/login';
