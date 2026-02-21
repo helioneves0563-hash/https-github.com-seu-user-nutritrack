@@ -74,6 +74,14 @@ export default function PacienteDashboard() {
   };
 
   const sendMeal = async () => {
+    if (!me?.id) {
+      setError('Perfil do paciente ainda está carregando. Tente novamente em alguns segundos.');
+      return;
+    }
+    if (!me?.id_nutricionista) {
+      setError('Seu perfil ainda não está vinculado a uma nutricionista.');
+      return;
+    }
     if (!arquivo) {
       setError('Selecione uma foto da refeição.');
       return;
@@ -134,7 +142,7 @@ export default function PacienteDashboard() {
           <label>Foto</label>
           <input type="file" accept="image/*" capture="environment" onChange={onFileChange} />
           {preview && <img src={preview} alt="preview" className="meal-img" />}
-          <button className="btn" onClick={sendMeal} disabled={sending || !me?.id_nutricionista}>
+          <button className="btn" onClick={sendMeal} disabled={sending || loading}>
             {sending ? 'Enviando...' : 'Enviar refeição'}
           </button>
           {sending && <p className="muted">Processando imagem e enviando para análise...</p>}
