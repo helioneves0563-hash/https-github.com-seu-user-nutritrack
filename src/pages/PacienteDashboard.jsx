@@ -13,6 +13,7 @@ export default function PacienteDashboard() {
   const [descricao, setDescricao] = useState('');
   const [arquivo, setArquivo] = useState(null);
   const [preview, setPreview] = useState('');
+  const [previewImage, setPreviewImage] = useState('');
   const [sending, setSending] = useState(false);
 
   const loadData = async () => {
@@ -169,9 +170,16 @@ export default function PacienteDashboard() {
             <div className="history-list">
               {history.map((r) => (
                 <div key={r.id} className="history-item">
-                  <div><strong>{r.tipo || 'refeição'}</strong> · {new Date(r.created_at).toLocaleString('pt-BR')}</div>
-                  <div>{r.descricao || 'Sem descrição.'}</div>
-                  {r.foto_url && <img src={r.foto_url} alt="Refeição" className="meal-img" />}
+                  <div className="history-header">
+                    <span className="meal-tag">{r.tipo || 'refeição'}</span>
+                    <span className="meal-date">{new Date(r.created_at).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="meal-desc">{r.descricao || 'Sem descrição.'}</div>
+                  {r.foto_url && (
+                    <button type="button" className="meal-img-btn" onClick={() => setPreviewImage(r.foto_url)}>
+                      <img src={r.foto_url} alt="Refeição" className="meal-img" />
+                    </button>
+                  )}
                   {(r.feedbacks?.length || 0) > 0 && (
                     <div className="feedback-box">
                       <strong>Comentário da nutri:</strong> {r.feedbacks[0].comentario || r.feedbacks[0].texto}
@@ -183,6 +191,12 @@ export default function PacienteDashboard() {
           )}
         </section>
       </div>
+
+      {previewImage && (
+        <div className="image-overlay" onClick={() => setPreviewImage('')}>
+          <img src={previewImage} alt="Prévia ampliada" className="image-overlay-content" />
+        </div>
+      )}
     </Shell>
   );
 }

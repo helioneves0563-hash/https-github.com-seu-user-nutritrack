@@ -14,6 +14,7 @@ export default function NutriDashboard() {
   const [history, setHistory] = useState([]);
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
   const [sendingFeedback, setSendingFeedback] = useState('');
+  const [previewImage, setPreviewImage] = useState('');
 
   const loadBase = async () => {
     setLoading(true);
@@ -161,10 +162,15 @@ export default function NutriDashboard() {
             <div className="history-list">
               {history.map((r) => (
                 <div key={r.id} className="history-item">
-                  <div><strong>{r.tipo || 'refeição'}</strong> · {new Date(r.created_at).toLocaleString('pt-BR')}</div>
-                  <div>{r.descricao || 'Sem descrição.'}</div>
+                  <div className="history-header">
+                    <span className="meal-tag">{r.tipo || 'refeição'}</span>
+                    <span className="meal-date">{new Date(r.created_at).toLocaleString('pt-BR')}</span>
+                  </div>
+                  <div className="meal-desc">{r.descricao || 'Sem descrição.'}</div>
                   {r.foto_url && (
-                    <img src={r.foto_url} alt="Refeição" className="meal-img" />
+                    <button type="button" className="meal-img-btn" onClick={() => setPreviewImage(r.foto_url)}>
+                      <img src={r.foto_url} alt="Refeição" className="meal-img" />
+                    </button>
                   )}
                   {(r.feedbacks?.length || 0) > 0 ? (
                     <div className="feedback-box">
@@ -195,6 +201,12 @@ export default function NutriDashboard() {
           {error && <div className="error-box">{error}</div>}
         </section>
       </div>
+
+      {previewImage && (
+        <div className="image-overlay" onClick={() => setPreviewImage('')}>
+          <img src={previewImage} alt="Prévia ampliada" className="image-overlay-content" />
+        </div>
+      )}
     </Shell>
   );
 }
