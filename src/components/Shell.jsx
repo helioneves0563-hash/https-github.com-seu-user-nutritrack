@@ -126,9 +126,12 @@ export default function Shell({ children }) {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <button className="brand" onClick={() => navigate(role === 'nutricionista' ? '/nutricionista' : '/paciente')}>
-          NutriTrack
-        </button>
+        <div className="topbar-left">
+          <button className="brand" onClick={() => navigate(role === 'nutricionista' ? '/nutricionista' : '/paciente')}>
+            NutriTrack
+          </button>
+          <span className="role-pill">{role === 'nutricionista' ? 'Painel Nutri' : 'Painel Paciente'}</span>
+        </div>
 
         <nav className="nav-links">
           {role === 'nutricionista' && <NavLink to="/nutricionista">Início</NavLink>}

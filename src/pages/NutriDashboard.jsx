@@ -103,8 +103,9 @@ export default function NutriDashboard() {
   return (
     <Shell>
       <div className="grid-two">
-        <section className="card">
+        <section className="card card-hero">
           <h2>Painel da Nutricionista</h2>
+          <p className="muted">Gerencie pacientes, planos e feedbacks em um só lugar.</p>
           <p>Seu código de convite:</p>
           <div className="invite">{me?.codigo_convite || 'Sem código'}</div>
           <button className="btn ghost" onClick={() => navigator.clipboard.writeText(me?.codigo_convite || '')}>Copiar código</button>
@@ -128,7 +129,7 @@ export default function NutriDashboard() {
           </div>
         </section>
 
-        <section className="card">
+        <section className="card card-elevated">
           <h2>Plano e Histórico</h2>
           {selectedPatient ? (
             <p>Paciente selecionado: <strong>{selectedPatient.profiles?.nome} {selectedPatient.profiles?.sobrenome}</strong></p>
@@ -136,10 +137,10 @@ export default function NutriDashboard() {
             <p>Selecione um paciente.</p>
           )}
 
-          <label>Título do plano</label>
+          <label className="field-label">Título do plano</label>
           <input value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} disabled={!selectedId} />
 
-          <label>Orientações</label>
+          <label className="field-label">Orientações</label>
           <textarea value={planObs} onChange={(e) => setPlanObs(e.target.value)} disabled={!selectedId} rows={4} />
 
           <button className="btn" onClick={savePlan} disabled={!selectedId || saving}>

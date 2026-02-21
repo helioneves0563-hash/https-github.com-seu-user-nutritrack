@@ -111,7 +111,7 @@ export default function PacienteDashboard() {
   return (
     <Shell>
       <div className="grid-one">
-        <section className="card">
+        <section className="card card-hero">
           <h2>Painel do Paciente</h2>
           {loading && <p>Carregando...</p>}
           {!loading && !me && <p>Perfil de paciente não encontrado.</p>}
@@ -128,18 +128,18 @@ export default function PacienteDashboard() {
           {error && <div className="error-box">{error}</div>}
         </section>
 
-        <section className="card">
+        <section className="card card-elevated">
           <h2>Enviar refeição para análise</h2>
-          <label>Tipo</label>
+          <label className="field-label">Tipo</label>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
             <option value="cafe_da_manha">Café da manhã</option>
             <option value="almoco">Almoço</option>
             <option value="lanche">Lanche</option>
             <option value="jantar">Jantar</option>
           </select>
-          <label>Descrição</label>
+          <label className="field-label">Descrição</label>
           <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Ex: arroz, feijão, frango grelhado" />
-          <label>Foto</label>
+          <label className="field-label">Foto</label>
           <input type="file" accept="image/*" capture="environment" onChange={onFileChange} />
           {preview && <img src={preview} alt="preview" className="meal-img" />}
           <button className="btn" onClick={sendMeal} disabled={sending || loading}>
