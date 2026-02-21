@@ -49,6 +49,13 @@ export default function NutriDashboard() {
   }, []);
 
   useEffect(() => {
+    const id = window.setInterval(() => {
+      loadBase().catch(() => {});
+    }, 20000);
+    return () => window.clearInterval(id);
+  }, []);
+
+  useEffect(() => {
     if (!selectedId) {
       setPlanTitle('Plano alimentar');
       setPlanObs('');

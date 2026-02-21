@@ -87,6 +87,11 @@ export default function Shell({ children }) {
       setUnread((prev) => prev + (nova.lida ? 0 : 1));
       beep();
       pushNative(nova);
+      // Se houver novo vínculo/refeição, força refresh das telas que dependem dessas relações.
+      const t = String(nova?.titulo || '').toLowerCase();
+      if (t.includes('paciente') || t.includes('refeição') || t.includes('refeicao')) {
+        window.dispatchEvent(new Event('nt:refresh'));
+      }
     }).then((sub) => {
       realtime = sub;
     });
