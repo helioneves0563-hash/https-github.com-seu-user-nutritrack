@@ -272,16 +272,20 @@ export const nutriApi = {
     };
   },
 
-  async patients() {
+  async patients(nutriIdParam = null) {
     assertSupabaseConfigured();
-    const me = await this.me();
-    if (!me?.id) return [];
+    let nutriId = nutriIdParam;
+    if (!nutriId) {
+      const me = await this.me();
+      nutriId = me?.id || null;
+    }
+    if (!nutriId) return [];
 
     const { data: pacientesRaw, error } = await withTimeout(
       supabase
         .from('pacientes')
         .select('id, profile_id, created_at')
-        .eq('id_nutricionista', me.id)
+        .eq('id_nutricionista', nutriId)
         .order('created_at', { ascending: false }),
       10000,
       'Timeout ao buscar pacientes da nutricionista.'

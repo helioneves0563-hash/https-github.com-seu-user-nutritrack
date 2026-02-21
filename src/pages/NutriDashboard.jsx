@@ -19,7 +19,8 @@ export default function NutriDashboard() {
     setLoading(true);
     setError('');
     try {
-      const [meData, patientData] = await Promise.all([nutriApi.me(), nutriApi.patients()]);
+      const meData = await nutriApi.me();
+      const patientData = await nutriApi.patients(meData?.id || null);
       setMe(meData);
       setPatients(patientData || []);
       setSelectedId((prev) => prev || patientData?.[0]?.id || '');
@@ -74,7 +75,7 @@ export default function NutriDashboard() {
   );
 
   const savePlan = async () => {
-    if (!selectedId) return;
+    if (!selectedId || !selectedPatient) return;
     setSaving(true);
     setError('');
     try {
@@ -148,7 +149,7 @@ export default function NutriDashboard() {
           <label className="field-label">Orientações</label>
           <textarea value={planObs} onChange={(e) => setPlanObs(e.target.value)} disabled={!selectedId} rows={4} />
 
-          <button className="btn" onClick={savePlan} disabled={!selectedId || saving}>
+          <button className="btn" type="button" onClick={savePlan} disabled={!selectedId || !selectedPatient || saving}>
             {saving ? 'Salvando...' : 'Salvar plano'}
           </button>
 
@@ -178,6 +179,7 @@ export default function NutriDashboard() {
                       />
                       <button
                         className="btn"
+                        type="button"
                         onClick={() => sendFeedback(r.id)}
                         disabled={sendingFeedback === r.id}
                       >

@@ -204,9 +204,9 @@ select {
 .notif-wrap { position: relative; }
 .notif-btn { min-width: 110px; }
 .notif-panel {
-  position: absolute;
-  top: 46px;
-  right: 0;
+  position: fixed;
+  top: 86px;
+  right: 18px;
   width: 320px;
   max-height: 420px;
   overflow: auto;
@@ -215,7 +215,7 @@ select {
   border-radius: 16px;
   padding: 12px;
   box-shadow: var(--shadow-strong);
-  z-index: 20;
+  z-index: 9999;
 }
 .notif-header {
   display: flex;

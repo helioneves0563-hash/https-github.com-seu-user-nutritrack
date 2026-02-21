@@ -136,9 +136,9 @@ export default function Shell({ children }) {
     <div className="app-shell">
       <header className="topbar">
         <div className="topbar-left">
-          <button className="brand" onClick={() => navigate(role === 'nutricionista' ? '/nutricionista' : '/paciente')}>
-            NutriTrack
-          </button>
+        <button type="button" className="brand" onClick={() => navigate(role === 'nutricionista' ? '/nutricionista' : '/paciente')}>
+          NutriTrack
+        </button>
           <span className="role-pill">{role === 'nutricionista' ? 'Painel Nutri' : 'Painel Paciente'}</span>
         </div>
 
@@ -149,18 +149,18 @@ export default function Shell({ children }) {
         </nav>
 
         <div className="top-actions">
-          <button className="btn ghost" onClick={onRefresh} disabled={refreshing}>
+          <button type="button" className="btn ghost" onClick={onRefresh} disabled={refreshing}>
             {refreshing ? 'Atualizando...' : 'Atualizar'}
           </button>
           <div className="notif-wrap" ref={notifRef}>
-            <button className="btn ghost notif-btn" onClick={() => setNotifOpen((v) => !v)}>
+            <button type="button" className="btn ghost notif-btn" onClick={() => setNotifOpen((v) => !v)}>
               Alertas {unread > 0 ? `(${unread})` : ''}
             </button>
             {notifOpen && (
               <div className="notif-panel">
                 <div className="notif-header">
                   <strong>Notificações</strong>
-                  <button onClick={markRead}>Marcar lidas</button>
+                  <button type="button" onClick={markRead}>Marcar lidas</button>
                 </div>
                 {notifs.length === 0 ? (
                   <p className="muted">Sem notificações.</p>
@@ -177,7 +177,7 @@ export default function Shell({ children }) {
               </div>
             )}
           </div>
-          <button className="btn" onClick={onLogout}>Sair</button>
+          <button type="button" className="btn" onClick={onLogout}>Sair</button>
         </div>
       </header>
 
