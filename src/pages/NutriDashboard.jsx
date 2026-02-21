@@ -15,6 +15,7 @@ export default function NutriDashboard() {
   const [feedbackDrafts, setFeedbackDrafts] = useState({});
   const [sendingFeedback, setSendingFeedback] = useState('');
   const [previewImage, setPreviewImage] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   const loadBase = async () => {
     setLoading(true);
@@ -74,6 +75,19 @@ export default function NutriDashboard() {
     () => patients.find((p) => p.id === selectedId) || null,
     [patients, selectedId]
   );
+  const filteredPatients = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return patients;
+    return patients.filter((p) => {
+      const nome = `${p.profiles?.nome || ''} ${p.profiles?.sobrenome || ''}`.toLowerCase();
+      return nome.includes(q);
+    });
+  }, [patients, searchTerm]);
+
+  const totalFeedback = useMemo(
+    () => history.reduce((acc, r) => acc + (r.feedbacks?.length || 0), 0),
+    [history]
+  );
 
   const savePlan = async () => {
     if (!selectedId || !selectedPatient) return;
@@ -109,95 +123,137 @@ export default function NutriDashboard() {
 
   return (
     <Shell>
-      <div className="grid-two">
-        <section className="card card-hero">
-          <h2>Painel da Nutricionista</h2>
-          <p className="muted">Gerencie pacientes, planos e feedbacks em um só lugar.</p>
-          <p>Seu código de convite:</p>
-          <div className="invite">{me?.codigo_convite || 'Sem código'}</div>
-          <button className="btn ghost" onClick={() => navigator.clipboard.writeText(me?.codigo_convite || '')}>Copiar código</button>
+      <div className="dash-grid">
+        <aside className="nutri-sidebar">
+          <div className="nutri-hero">
+            <div className="nutri-avatar">
+              {(me?.profiles?.nome?.[0] || 'N').toUpperCase()}
+              {(me?.profiles?.sobrenome?.[0] || 'T').toUpperCase()}
+            </div>
+            <div>
+              <h2 className="no-margin">Painel Nutri</h2>
+              <p className="muted no-margin">{me?.profiles?.nome || 'Nutricionista'} {me?.profiles?.sobrenome || ''}</p>
+            </div>
+          </div>
 
-          <hr />
-          <h3>Pacientes</h3>
+          <div className="kpi-row">
+            <div className="kpi-card">
+              <div className="kpi-label">Pacientes</div>
+              <div className="kpi-value">{patients.length}</div>
+            </div>
+            <div className="kpi-card">
+              <div className="kpi-label">Feedbacks</div>
+              <div className="kpi-value">{totalFeedback}</div>
+            </div>
+          </div>
 
-          {loading && <p>Carregando pacientes...</p>}
-          {!loading && patients.length === 0 && <p>Nenhum paciente vinculado.</p>}
+          <div className="invite-wrap">
+            <div className="kpi-label">Código de convite</div>
+            <div className="invite">{me?.codigo_convite || 'Sem código'}</div>
+            <button type="button" className="btn ghost" onClick={() => navigator.clipboard.writeText(me?.codigo_convite || '')}>
+              Copiar código
+            </button>
+          </div>
 
-          <div className="list">
-            {patients.map((p) => (
+          <div className="patient-search-wrap">
+            <input
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar paciente..."
+            />
+          </div>
+
+          <div className="patient-list">
+            {loading && <p className="muted">Carregando pacientes...</p>}
+            {!loading && filteredPatients.length === 0 && <p className="muted">Nenhum paciente vinculado.</p>}
+            {filteredPatients.map((p) => (
               <button
+                type="button"
                 key={p.id}
-                className={`list-item ${selectedId === p.id ? 'active' : ''}`}
+                className={`patient-item ${selectedId === p.id ? 'active' : ''}`}
                 onClick={() => setSelectedId(p.id)}
               >
-                {(p.profiles?.nome || 'Paciente')} {(p.profiles?.sobrenome || '')}
+                <span className="patient-initial">
+                  {(p.profiles?.nome?.[0] || 'P').toUpperCase()}
+                </span>
+                <span>
+                  {(p.profiles?.nome || 'Paciente')} {(p.profiles?.sobrenome || '')}
+                </span>
               </button>
             ))}
           </div>
-        </section>
+        </aside>
 
-        <section className="card card-elevated">
-          <h2>Plano e Histórico</h2>
-          {selectedPatient ? (
-            <p>Paciente selecionado: <strong>{selectedPatient.profiles?.nome} {selectedPatient.profiles?.sobrenome}</strong></p>
-          ) : (
-            <p>Selecione um paciente.</p>
-          )}
+        <section className="nutri-main">
+          <div className="card card-elevated">
+            <h2>Plano Alimentar</h2>
+            {selectedPatient ? (
+              <p>Paciente selecionado: <strong>{selectedPatient.profiles?.nome} {selectedPatient.profiles?.sobrenome}</strong></p>
+            ) : (
+              <p>Selecione um paciente na lateral.</p>
+            )}
 
-          <label className="field-label">Título do plano</label>
-          <input value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} disabled={!selectedId} />
+            <label className="field-label">Título do plano</label>
+            <input value={planTitle} onChange={(e) => setPlanTitle(e.target.value)} disabled={!selectedId} />
 
-          <label className="field-label">Orientações</label>
-          <textarea value={planObs} onChange={(e) => setPlanObs(e.target.value)} disabled={!selectedId} rows={4} />
+            <label className="field-label">Orientações da semana</label>
+            <textarea value={planObs} onChange={(e) => setPlanObs(e.target.value)} disabled={!selectedId} rows={4} />
 
-          <button className="btn" type="button" onClick={savePlan} disabled={!selectedId || !selectedPatient || saving}>
-            {saving ? 'Salvando...' : 'Salvar plano'}
-          </button>
+            <button className="btn" type="button" onClick={savePlan} disabled={!selectedId || !selectedPatient || saving}>
+              {saving ? 'Salvando...' : 'Salvar plano'}
+            </button>
+          </div>
 
-          <hr />
-          <h3>Histórico de refeições</h3>
-          {history.length === 0 ? (
-            <p>Sem registros de refeições desse paciente.</p>
-          ) : (
-            <div className="history-list">
-              {history.map((r) => (
-                <div key={r.id} className="history-item">
-                  <div className="history-header">
-                    <span className="meal-tag">{r.tipo || 'refeição'}</span>
-                    <span className="meal-date">{new Date(r.created_at).toLocaleString('pt-BR')}</span>
-                  </div>
-                  <div className="meal-desc">{r.descricao || 'Sem descrição.'}</div>
-                  {r.foto_url && (
-                    <button type="button" className="meal-img-btn" onClick={() => setPreviewImage(r.foto_url)}>
-                      <img src={r.foto_url} alt="Refeição" className="meal-img" />
-                    </button>
-                  )}
-                  {(r.feedbacks?.length || 0) > 0 ? (
-                    <div className="feedback-box">
-                      <strong>Feedback:</strong> {r.feedbacks[0].comentario || r.feedbacks[0].texto}
+          <div className="card card-elevated">
+            <h2>Histórico de refeições</h2>
+            {!selectedPatient && <p className="muted">Selecione um paciente para visualizar o histórico.</p>}
+            {selectedPatient && history.length === 0 && (
+              <p className="muted">Sem registros de refeições desse paciente.</p>
+            )}
+            {selectedPatient && history.length > 0 && (
+              <div className="history-list">
+                {history.map((r) => (
+                  <div key={r.id} className="history-item">
+                    <div className="history-header">
+                      <span className="meal-tag">{r.tipo || 'refeição'}</span>
+                      <span className="meal-date">{new Date(r.created_at).toLocaleString('pt-BR')}</span>
                     </div>
-                  ) : (
-                    <div className="feedback-form">
-                      <input
-                        value={feedbackDrafts[r.id] || ''}
-                        onChange={(e) => setFeedbackDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
-                        placeholder="Comentário + emojis (ex: Ótimo prato 👏🥗)"
-                      />
-                      <button
-                        className="btn"
-                        type="button"
-                        onClick={() => sendFeedback(r.id)}
-                        disabled={sendingFeedback === r.id}
-                      >
-                        {sendingFeedback === r.id ? 'Enviando...' : 'Enviar'}
+                    <div className="meal-desc">{r.descricao || 'Sem descrição.'}</div>
+                    {r.foto_url && (
+                      <button type="button" className="meal-img-btn" onClick={() => setPreviewImage(r.foto_url)}>
+                        <img src={r.foto_url} alt="Refeição" className="meal-img" />
                       </button>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
+                    )}
+                    {(r.feedbacks?.length || 0) > 0 ? (
+                      <div className="feedback-box">
+                        <strong>Feedback:</strong> {r.feedbacks[0].comentario || r.feedbacks[0].texto}
+                      </div>
+                    ) : (
+                      <div className="feedback-form">
+                        <input
+                          value={feedbackDrafts[r.id] || ''}
+                          onChange={(e) => setFeedbackDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                          placeholder="Comentário + emojis (ex: Ótimo prato 👏🥗)"
+                        />
+                        <button
+                          className="btn"
+                          type="button"
+                          onClick={() => sendFeedback(r.id)}
+                          disabled={sendingFeedback === r.id}
+                        >
+                          {sendingFeedback === r.id ? 'Enviando...' : 'Enviar'}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
+          {selectedPatient ? (
+            null
+          ) : null}
           {error && <div className="error-box">{error}</div>}
         </section>
       </div>
