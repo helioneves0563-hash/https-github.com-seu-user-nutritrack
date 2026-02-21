@@ -444,7 +444,7 @@ export const pacienteApi = {
         foto_url: fotoUrl
       })
       .select('*')
-      .single());
+      .single(), 12000, 'Demora no banco para registrar refeição.');
 
     if (error) throw new Error(error.message);
 
@@ -456,11 +456,11 @@ export const pacienteApi = {
         .maybeSingle();
 
       if (nutriProfile?.profile_id) {
-        await supabase.from('notificacoes').insert({
+        supabase.from('notificacoes').insert({
           user_target: nutriProfile.profile_id,
           titulo: 'Nova refeição enviada',
           mensagem: 'Paciente enviou uma refeição para análise.'
-        });
+        }).then(() => {}).catch(() => {});
       }
     }
 

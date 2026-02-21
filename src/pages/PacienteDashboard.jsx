@@ -89,11 +89,14 @@ export default function PacienteDashboard() {
       }
       setPreview('');
       setTipo('almoco');
-      await loadData();
     } catch (err) {
       setError(err.message || 'Falha ao enviar refeição.');
     } finally {
       setSending(false);
+      Promise.race([
+        loadData(),
+        new Promise((resolve) => setTimeout(resolve, 8000))
+      ]).catch(() => {});
     }
   };
 
