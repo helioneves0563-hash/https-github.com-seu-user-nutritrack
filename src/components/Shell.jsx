@@ -106,7 +106,13 @@ export default function Shell({ children }) {
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await refresh();
+      await Promise.race([
+        refresh(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 8000))
+      ]);
+      window.dispatchEvent(new Event('nt:refresh'));
+    } catch (e) {
+      console.error('Atualização parcial (timeout):', e);
       window.dispatchEvent(new Event('nt:refresh'));
     } finally {
       setRefreshing(false);

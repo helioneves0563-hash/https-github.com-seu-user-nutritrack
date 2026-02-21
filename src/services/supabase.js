@@ -235,14 +235,41 @@ export const nutriApi = {
     const user = await authApi.currentUser();
     if (!user) return null;
 
-    const { data, error } = await supabase
-      .from('nutricionistas')
-      .select('*, profiles!inner(id, nome, sobrenome, email, role)')
-      .eq('profile_id', user.id)
-      .maybeSingle();
+    const profile = await ensureProfile(user, 'nutricionista');
+    const fallbackCode = buildInviteCode(user.id);
+
+    const { error: upsertErr } = await withTimeout(
+      supabase
+        .from('nutricionistas')
+        .upsert(
+          {
+            profile_id: user.id,
+            codigo_convite: fallbackCode
+          },
+          { onConflict: 'profile_id' }
+        ),
+      10000,
+      'Timeout ao garantir cadastro de nutricionista.'
+    );
+
+    if (upsertErr) throw new Error(upsertErr.message);
+
+    const { data, error } = await withTimeout(
+      supabase
+        .from('nutricionistas')
+        .select('id, profile_id, codigo_convite, crn, especialidade, clinica')
+        .eq('profile_id', user.id)
+        .maybeSingle(),
+      10000,
+      'Timeout ao buscar perfil da nutricionista.'
+    );
 
     if (error) throw new Error(error.message);
-    return data;
+    if (!data) return null;
+    return {
+      ...data,
+      profiles: profile
+    };
   },
 
   async patients() {
@@ -250,14 +277,37 @@ export const nutriApi = {
     const me = await this.me();
     if (!me?.id) return [];
 
-    const { data, error } = await supabase
-      .from('pacientes')
-      .select('id, profile_id, created_at, profiles!inner(id, nome, sobrenome, email)')
-      .eq('id_nutricionista', me.id)
-      .order('created_at', { ascending: false });
+    const { data: pacientesRaw, error } = await withTimeout(
+      supabase
+        .from('pacientes')
+        .select('id, profile_id, created_at')
+        .eq('id_nutricionista', me.id)
+        .order('created_at', { ascending: false }),
+      10000,
+      'Timeout ao buscar pacientes da nutricionista.'
+    );
 
     if (error) throw new Error(error.message);
-    return data || [];
+    const pacientes = pacientesRaw || [];
+    const profileIds = pacientes.map((p) => p.profile_id).filter(Boolean);
+    if (profileIds.length === 0) return [];
+
+    const { data: profilesRaw, error: profilesErr } = await withTimeout(
+      supabase
+        .from('profiles')
+        .select('id, nome, sobrenome, email')
+        .in('id', profileIds),
+      10000,
+      'Timeout ao buscar dados dos pacientes.'
+    );
+
+    if (profilesErr) throw new Error(profilesErr.message);
+
+    const profileMap = new Map((profilesRaw || []).map((p) => [p.id, p]));
+    return pacientes.map((p) => ({
+      ...p,
+      profiles: profileMap.get(p.profile_id) || null
+    }));
   },
 
   async activePlan(pacienteId) {

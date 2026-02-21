@@ -35,6 +35,11 @@ export default function NutriDashboard() {
   }, []);
 
   useEffect(() => {
+    const safety = setTimeout(() => setLoading(false), 12000);
+    return () => clearTimeout(safety);
+  }, [loading]);
+
+  useEffect(() => {
     const onRefresh = () => loadBase();
     window.addEventListener('nt:refresh', onRefresh);
     return () => window.removeEventListener('nt:refresh', onRefresh);
