@@ -450,8 +450,8 @@ export const pacienteApi = {
     const code = (rawCode || '').trim().toUpperCase();
     if (!code) throw new Error('Informe o código da nutricionista.');
 
-    const me = await this.me();
-    if (!me?.id) throw new Error('Perfil de paciente não encontrado.');
+    const user = await authApi.currentUser();
+    if (!user?.id) throw new Error('Usuário não autenticado.');
 
     const { data: nutri, error: nutriErr } = await supabase
       .from('nutricionistas')
@@ -462,12 +462,30 @@ export const pacienteApi = {
     if (nutriErr) throw new Error(nutriErr.message);
     if (!nutri?.id) throw new Error('Código de nutricionista inválido.');
 
+    // Upsert por profile_id evita falhas quando o registro de paciente ainda não foi criado.
     const { error: updateErr } = await supabase
       .from('pacientes')
-      .update({ id_nutricionista: nutri.id })
-      .eq('id', me.id);
+      .upsert(
+        {
+          profile_id: user.id,
+          id_nutricionista: nutri.id
+        },
+        { onConflict: 'profile_id' }
+      );
 
     if (updateErr) throw new Error(updateErr.message);
+
+    // Confirma persistência antes de retornar sucesso para a UI.
+    const { data: confirm, error: confirmErr } = await supabase
+      .from('pacientes')
+      .select('id, id_nutricionista')
+      .eq('profile_id', user.id)
+      .maybeSingle();
+
+    if (confirmErr) throw new Error(confirmErr.message);
+    if (!confirm?.id_nutricionista || confirm.id_nutricionista !== nutri.id) {
+      throw new Error('Vínculo não confirmado no banco. Tente novamente.');
+    }
 
     if (nutri.profile_id) {
       supabase
