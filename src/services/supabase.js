@@ -433,6 +433,7 @@ export const pacienteApi = {
     assertSupabaseConfigured();
     const user = await authApi.currentUser();
     if (!user) return null;
+    await ensureProfile(user, 'paciente');
 
     const { data, error } = await supabase
       .from('pacientes')
@@ -442,6 +443,45 @@ export const pacienteApi = {
 
     if (error) throw new Error(error.message);
     return data;
+  },
+
+  async linkByInviteCode(rawCode) {
+    assertSupabaseConfigured();
+    const code = (rawCode || '').trim().toUpperCase();
+    if (!code) throw new Error('Informe o código da nutricionista.');
+
+    const me = await this.me();
+    if (!me?.id) throw new Error('Perfil de paciente não encontrado.');
+
+    const { data: nutri, error: nutriErr } = await supabase
+      .from('nutricionistas')
+      .select('id, profile_id, codigo_convite')
+      .eq('codigo_convite', code)
+      .maybeSingle();
+
+    if (nutriErr) throw new Error(nutriErr.message);
+    if (!nutri?.id) throw new Error('Código de nutricionista inválido.');
+
+    const { error: updateErr } = await supabase
+      .from('pacientes')
+      .update({ id_nutricionista: nutri.id })
+      .eq('id', me.id);
+
+    if (updateErr) throw new Error(updateErr.message);
+
+    if (nutri.profile_id) {
+      supabase
+        .from('notificacoes')
+        .insert({
+          user_target: nutri.profile_id,
+          titulo: 'Novo paciente vinculado',
+          mensagem: 'Um paciente vinculou-se ao seu código de convite.'
+        })
+        .then(() => {})
+        .catch(() => {});
+    }
+
+    return { linked: true, nutriId: nutri.id, code: nutri.codigo_convite };
   },
 
   async myPlan() {

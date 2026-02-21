@@ -15,6 +15,9 @@ export default function PacienteDashboard() {
   const [preview, setPreview] = useState('');
   const [previewImage, setPreviewImage] = useState('');
   const [sending, setSending] = useState(false);
+  const [inviteCode, setInviteCode] = useState('');
+  const [linking, setLinking] = useState(false);
+  const [successMsg, setSuccessMsg] = useState('');
   const linked = !!me?.id_nutricionista;
 
   const patientName = useMemo(() => {
@@ -29,6 +32,7 @@ export default function PacienteDashboard() {
     try {
       const meData = await pacienteApi.me();
       setMe(meData);
+      setSuccessMsg('');
 
       if (meData?.id_nutricionista) {
         const { data: nutriData, error: nutriErr } = await supabase
@@ -116,6 +120,22 @@ export default function PacienteDashboard() {
     }
   };
 
+  const linkNutri = async () => {
+    setError('');
+    setSuccessMsg('');
+    setLinking(true);
+    try {
+      await pacienteApi.linkByInviteCode(inviteCode);
+      setInviteCode('');
+      setSuccessMsg('Vínculo realizado com sucesso.');
+      await loadData();
+    } catch (err) {
+      setError(err.message || 'Não foi possível vincular pelo código.');
+    } finally {
+      setLinking(false);
+    }
+  };
+
   return (
     <Shell>
       <div className="paciente-grid">
@@ -154,10 +174,34 @@ export default function PacienteDashboard() {
               )}
             </>
           )}
+          {successMsg && <div className="success-box">{successMsg}</div>}
           {error && <div className="error-box">{error}</div>}
         </section>
 
         <section className="card card-elevated">
+          {!linked && (
+            <div className="link-box">
+              <h3>Vincular com código da nutricionista</h3>
+              <p className="muted">Digite o código de convite para liberar envio e acompanhamento.</p>
+              <div className="link-form">
+                <input
+                  value={inviteCode}
+                  onChange={(e) => setInviteCode(e.target.value.toUpperCase())}
+                  placeholder="Ex: NUTRI-731B33"
+                  maxLength={32}
+                />
+                <button
+                  type="button"
+                  className="btn"
+                  onClick={linkNutri}
+                  disabled={linking || !inviteCode.trim()}
+                >
+                  {linking ? 'Vinculando...' : 'Vincular'}
+                </button>
+              </div>
+            </div>
+          )}
+
           <h2>Enviar refeição para análise</h2>
           <p className="muted">Envie foto e descrição para receber comentário da sua nutricionista.</p>
           <label className="field-label">Tipo</label>

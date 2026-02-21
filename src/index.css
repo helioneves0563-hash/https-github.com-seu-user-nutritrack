@@ -203,6 +203,16 @@ select:focus {
   color: #8c1b1b;
 }
 
+.success-box {
+  margin-top: 10px;
+  padding: 10px;
+  border: 1px solid #b8e2ca;
+  background: #f2fbf6;
+  border-radius: 10px;
+  font-size: 13px;
+  color: #1d6e45;
+}
+
 .app-shell {
   min-height: 100vh;
 }
@@ -615,6 +625,25 @@ select:focus {
   color: #644747;
 }
 
+.link-box {
+  margin-bottom: 14px;
+  border: 1px dashed #dfb3b5;
+  background: linear-gradient(180deg, #fffafa, #fff);
+  border-radius: 14px;
+  padding: 12px;
+}
+
+.link-box h3 {
+  margin: 0 0 4px;
+}
+
+.link-form {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+  margin-top: 8px;
+}
+
 .history-list {
   display: flex;
   flex-direction: column;
@@ -785,6 +814,10 @@ select:focus {
   }
 
   .feedback-form {
+    grid-template-columns: 1fr;
+  }
+
+  .link-form {
     grid-template-columns: 1fr;
   }
 }
