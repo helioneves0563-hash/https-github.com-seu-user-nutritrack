@@ -14,8 +14,14 @@ export default function Shell({ children }) {
   const notifRef = useRef(null);
 
   const onLogout = async () => {
-    await logout();
-    navigate('/login', { replace: true });
+    try {
+      await logout();
+    } catch (e) {
+      console.error('Falha no logout, forçando saída local:', e);
+    } finally {
+      navigate('/login', { replace: true });
+      window.location.href = '/login';
+    }
   };
 
   useEffect(() => {

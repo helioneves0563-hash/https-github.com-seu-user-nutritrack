@@ -30,6 +30,20 @@ async function fileToDataUrl(file) {
   });
 }
 
+async function withTimeout(promise, ms = 15000, message = 'Tempo de resposta excedido') {
+  let timer;
+  try {
+    return await Promise.race([
+      promise,
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error(message)), ms);
+      })
+    ]);
+  } finally {
+    if (timer) clearTimeout(timer);
+  }
+}
+
 async function ensureProfile(user, forcedRole = null) {
   assertSupabaseConfigured();
   if (!user?.id) return null;
@@ -414,9 +428,13 @@ export const pacienteApi = {
     const me = await this.me();
     if (!me?.id) throw new Error('Perfil de paciente não encontrado.');
 
-    const fotoUrl = await fileToDataUrl(arquivo);
+    const fotoUrl = await withTimeout(
+      fileToDataUrl(arquivo),
+      12000,
+      'A foto demorou para processar. Tente uma imagem menor.'
+    );
 
-    const { data, error } = await supabase
+    const { data, error } = await withTimeout(supabase
       .from('registros_refeicoes')
       .insert({
         paciente_id: me.id,
@@ -426,7 +444,7 @@ export const pacienteApi = {
         foto_url: fotoUrl
       })
       .select('*')
-      .single();
+      .single());
 
     if (error) throw new Error(error.message);
 

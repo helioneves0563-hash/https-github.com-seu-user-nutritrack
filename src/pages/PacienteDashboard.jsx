@@ -61,6 +61,14 @@ export default function PacienteDashboard() {
   const onFileChange = (e) => {
     const f = e.target.files?.[0];
     if (!f) return;
+    if (f.size > 5 * 1024 * 1024) {
+      setError('A foto deve ter no máximo 5MB.');
+      return;
+    }
+    setError('');
+    if (preview) {
+      URL.revokeObjectURL(preview);
+    }
     setArquivo(f);
     setPreview(URL.createObjectURL(f));
   };
@@ -76,6 +84,9 @@ export default function PacienteDashboard() {
       await pacienteApi.sendMeal({ tipo, descricao, arquivo });
       setDescricao('');
       setArquivo(null);
+      if (preview) {
+        URL.revokeObjectURL(preview);
+      }
       setPreview('');
       setTipo('almoco');
       await loadData();
@@ -123,6 +134,7 @@ export default function PacienteDashboard() {
           <button className="btn" onClick={sendMeal} disabled={sending || !me?.id_nutricionista}>
             {sending ? 'Enviando...' : 'Enviar refeição'}
           </button>
+          {sending && <p className="muted">Processando imagem e enviando para análise...</p>}
           {!me?.id_nutricionista && <p className="muted">Vincule-se a uma nutricionista para enviar análise.</p>}
         </section>
 
