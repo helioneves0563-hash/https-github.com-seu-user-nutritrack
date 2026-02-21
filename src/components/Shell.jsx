@@ -14,14 +14,17 @@ export default function Shell({ children }) {
   const notifRef = useRef(null);
 
   const onLogout = async () => {
-    try {
-      await logout();
-    } catch (e) {
-      console.error('Falha no logout, forçando saída local:', e);
-    } finally {
-      navigate('/login', { replace: true });
-      window.location.href = '/login';
-    }
+    // Redireciona imediatamente, sem depender da resposta da API.
+    navigate('/login', { replace: true });
+    window.location.href = '/login';
+
+    // Executa logout em background com timeout para não travar a UI.
+    Promise.race([
+      logout(),
+      new Promise((resolve) => setTimeout(resolve, 1200))
+    ]).catch((e) => {
+      console.error('Falha no logout em background:', e);
+    });
   };
 
   useEffect(() => {
