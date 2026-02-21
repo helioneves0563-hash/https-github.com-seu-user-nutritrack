@@ -366,6 +366,56 @@ select:focus {
   gap: 14px;
 }
 
+.paciente-grid {
+  display: grid;
+  grid-template-columns: minmax(300px, 360px) 1fr;
+  gap: 16px;
+  align-items: start;
+}
+
+.paciente-grid .card:nth-child(3),
+.paciente-grid .card:nth-child(4) {
+  grid-column: 1 / -1;
+}
+
+.paciente-summary {
+  position: sticky;
+  top: 92px;
+}
+
+.paciente-head {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.paciente-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: 50%;
+  background: linear-gradient(140deg, #8e0f14, #bd2328);
+  color: #fff;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+}
+
+.paciente-kpi .kpi-card-light {
+  background: #fff;
+  border-color: #e8d2d3;
+}
+
+.paciente-kpi .kpi-label.dark {
+  color: #8b6668;
+}
+
+.paciente-kpi .kpi-value.dark {
+  color: #341f20;
+  font-size: 20px;
+}
+
 .nutri-sidebar {
   background: linear-gradient(165deg, #7f0f13 0%, #a6171d 60%, #b92227 100%);
   border-radius: var(--radius-xl);
@@ -682,8 +732,21 @@ select:focus {
     grid-template-columns: 1fr;
   }
 
+  .paciente-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .paciente-grid .card:nth-child(3),
+  .paciente-grid .card:nth-child(4) {
+    grid-column: auto;
+  }
+
   .nutri-sidebar {
     min-height: auto;
+    position: static;
+  }
+
+  .paciente-summary {
     position: static;
   }
 }

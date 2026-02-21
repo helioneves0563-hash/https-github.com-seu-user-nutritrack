@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import Shell from '../components/Shell';
 import { pacienteApi, supabase } from '../services/supabase';
 
@@ -15,6 +15,13 @@ export default function PacienteDashboard() {
   const [preview, setPreview] = useState('');
   const [previewImage, setPreviewImage] = useState('');
   const [sending, setSending] = useState(false);
+  const linked = !!me?.id_nutricionista;
+
+  const patientName = useMemo(() => {
+    if (!me?.profiles) return 'Paciente';
+    const full = `${me.profiles.nome || ''} ${me.profiles.sobrenome || ''}`.trim();
+    return full || 'Paciente';
+  }, [me]);
 
   const loadData = async () => {
     setLoading(true);
@@ -111,14 +118,35 @@ export default function PacienteDashboard() {
 
   return (
     <Shell>
-      <div className="grid-one">
-        <section className="card card-hero">
-          <h2>Painel do Paciente</h2>
+      <div className="paciente-grid">
+        <section className="card card-hero paciente-summary">
+          <div className="paciente-head">
+            <div className="paciente-avatar">
+              {(me?.profiles?.nome?.[0] || 'P').toUpperCase()}
+              {(me?.profiles?.sobrenome?.[0] || '').toUpperCase()}
+            </div>
+            <div>
+              <h2 className="no-margin">Olá, {patientName}</h2>
+              <p className="muted no-margin">Seu painel de refeições e plano alimentar</p>
+            </div>
+          </div>
+
+          <div className="kpi-row paciente-kpi">
+            <div className="kpi-card kpi-card-light">
+              <div className="kpi-label dark">Vínculo</div>
+              <div className="kpi-value dark">{linked ? 'Ativo' : 'Pendente'}</div>
+            </div>
+            <div className="kpi-card kpi-card-light">
+              <div className="kpi-label dark">Registros</div>
+              <div className="kpi-value dark">{history.length}</div>
+            </div>
+          </div>
+
           {loading && <p>Carregando...</p>}
           {!loading && !me && <p>Perfil de paciente não encontrado.</p>}
           {!loading && me && (
             <>
-              <p>Status de vínculo: <strong>{me.id_nutricionista ? 'Vinculado' : 'Sem nutricionista'}</strong></p>
+              <p>Status de vínculo: <strong>{linked ? 'Vinculado' : 'Sem nutricionista'}</strong></p>
               {nutri ? (
                 <p>Nutricionista: <strong>{nutri.profiles?.nome} {nutri.profiles?.sobrenome}</strong></p>
               ) : (
@@ -131,6 +159,7 @@ export default function PacienteDashboard() {
 
         <section className="card card-elevated">
           <h2>Enviar refeição para análise</h2>
+          <p className="muted">Envie foto e descrição para receber comentário da sua nutricionista.</p>
           <label className="field-label">Tipo</label>
           <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
             <option value="cafe_da_manha">Café da manhã</option>
@@ -143,14 +172,14 @@ export default function PacienteDashboard() {
           <label className="field-label">Foto</label>
           <input type="file" accept="image/*" capture="environment" onChange={onFileChange} />
           {preview && <img src={preview} alt="preview" className="meal-img" />}
-          <button className="btn" onClick={sendMeal} disabled={sending || loading}>
+          <button className="btn" onClick={sendMeal} disabled={sending || loading || !linked}>
             {sending ? 'Enviando...' : 'Enviar refeição'}
           </button>
           {sending && <p className="muted">Processando imagem e enviando para análise...</p>}
-          {!me?.id_nutricionista && <p className="muted">Vincule-se a uma nutricionista para enviar análise.</p>}
+          {!linked && <p className="muted">Vincule-se a uma nutricionista para enviar análise.</p>}
         </section>
 
-        <section className="card">
+        <section className="card card-elevated">
           <h2>Meu plano</h2>
           {plan ? (
             <>
@@ -162,7 +191,7 @@ export default function PacienteDashboard() {
           )}
         </section>
 
-        <section className="card">
+        <section className="card card-elevated">
           <h2>Meu histórico</h2>
           {history.length === 0 ? (
             <p>Nenhuma refeição registrada.</p>
