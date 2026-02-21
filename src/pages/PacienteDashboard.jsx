@@ -9,39 +9,82 @@ export default function PacienteDashboard() {
   const [nutri, setNutri] = useState(null);
   const [plan, setPlan] = useState(null);
   const [history, setHistory] = useState([]);
+  const [tipo, setTipo] = useState('almoco');
+  const [descricao, setDescricao] = useState('');
+  const [arquivo, setArquivo] = useState(null);
+  const [preview, setPreview] = useState('');
+  const [sending, setSending] = useState(false);
+
+  const loadData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const meData = await pacienteApi.me();
+      setMe(meData);
+
+      if (meData?.id_nutricionista) {
+        const { data: nutriData, error: nutriErr } = await supabase
+          .from('nutricionistas')
+          .select('id, codigo_convite, profiles!inner(nome, sobrenome, email)')
+          .eq('id', meData.id_nutricionista)
+          .maybeSingle();
+        if (nutriErr) throw new Error(nutriErr.message);
+        setNutri(nutriData);
+      } else {
+        setNutri(null);
+      }
+
+      const [planData, histData] = await Promise.all([
+        pacienteApi.myPlan(),
+        pacienteApi.myHistory()
+      ]);
+
+      setPlan(planData);
+      setHistory(histData || []);
+    } catch (err) {
+      setError(err.message || 'Falha ao carregar dados do paciente.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    (async () => {
-      setLoading(true);
-      setError('');
-      try {
-        const meData = await pacienteApi.me();
-        setMe(meData);
-
-        if (meData?.id_nutricionista) {
-          const { data: nutriData, error: nutriErr } = await supabase
-            .from('nutricionistas')
-            .select('id, codigo_convite, profiles!inner(nome, sobrenome, email)')
-            .eq('id', meData.id_nutricionista)
-            .maybeSingle();
-          if (nutriErr) throw new Error(nutriErr.message);
-          setNutri(nutriData);
-        }
-
-        const [planData, histData] = await Promise.all([
-          pacienteApi.myPlan(),
-          pacienteApi.myHistory()
-        ]);
-
-        setPlan(planData);
-        setHistory(histData || []);
-      } catch (err) {
-        setError(err.message || 'Falha ao carregar dados do paciente.');
-      } finally {
-        setLoading(false);
-      }
-    })();
+    loadData();
   }, []);
+
+  useEffect(() => {
+    const onRefresh = () => loadData();
+    window.addEventListener('nt:refresh', onRefresh);
+    return () => window.removeEventListener('nt:refresh', onRefresh);
+  }, []);
+
+  const onFileChange = (e) => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    setArquivo(f);
+    setPreview(URL.createObjectURL(f));
+  };
+
+  const sendMeal = async () => {
+    if (!arquivo) {
+      setError('Selecione uma foto da refeição.');
+      return;
+    }
+    setSending(true);
+    setError('');
+    try {
+      await pacienteApi.sendMeal({ tipo, descricao, arquivo });
+      setDescricao('');
+      setArquivo(null);
+      setPreview('');
+      setTipo('almoco');
+      await loadData();
+    } catch (err) {
+      setError(err.message || 'Falha ao enviar refeição.');
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <Shell>
@@ -61,6 +104,26 @@ export default function PacienteDashboard() {
             </>
           )}
           {error && <div className="error-box">{error}</div>}
+        </section>
+
+        <section className="card">
+          <h2>Enviar refeição para análise</h2>
+          <label>Tipo</label>
+          <select value={tipo} onChange={(e) => setTipo(e.target.value)}>
+            <option value="cafe_da_manha">Café da manhã</option>
+            <option value="almoco">Almoço</option>
+            <option value="lanche">Lanche</option>
+            <option value="jantar">Jantar</option>
+          </select>
+          <label>Descrição</label>
+          <textarea value={descricao} onChange={(e) => setDescricao(e.target.value)} rows={3} placeholder="Ex: arroz, feijão, frango grelhado" />
+          <label>Foto</label>
+          <input type="file" accept="image/*" capture="environment" onChange={onFileChange} />
+          {preview && <img src={preview} alt="preview" className="meal-img" />}
+          <button className="btn" onClick={sendMeal} disabled={sending || !me?.id_nutricionista}>
+            {sending ? 'Enviando...' : 'Enviar refeição'}
+          </button>
+          {!me?.id_nutricionista && <p className="muted">Vincule-se a uma nutricionista para enviar análise.</p>}
         </section>
 
         <section className="card">
@@ -85,6 +148,12 @@ export default function PacienteDashboard() {
                 <div key={r.id} className="history-item">
                   <div><strong>{r.tipo || 'refeição'}</strong> · {new Date(r.created_at).toLocaleString('pt-BR')}</div>
                   <div>{r.descricao || 'Sem descrição.'}</div>
+                  {r.foto_url && <img src={r.foto_url} alt="Refeição" className="meal-img" />}
+                  {(r.feedbacks?.length || 0) > 0 && (
+                    <div className="feedback-box">
+                      <strong>Comentário da nutri:</strong> {r.feedbacks[0].comentario || r.feedbacks[0].texto}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

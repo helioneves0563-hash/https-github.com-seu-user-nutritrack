@@ -12,6 +12,8 @@ export default function NutriDashboard() {
   const [planTitle, setPlanTitle] = useState('Plano alimentar');
   const [planObs, setPlanObs] = useState('');
   const [history, setHistory] = useState([]);
+  const [feedbackDrafts, setFeedbackDrafts] = useState({});
+  const [sendingFeedback, setSendingFeedback] = useState('');
 
   const loadBase = async () => {
     setLoading(true);
@@ -30,6 +32,12 @@ export default function NutriDashboard() {
 
   useEffect(() => {
     loadBase();
+  }, []);
+
+  useEffect(() => {
+    const onRefresh = () => loadBase();
+    window.addEventListener('nt:refresh', onRefresh);
+    return () => window.removeEventListener('nt:refresh', onRefresh);
   }, []);
 
   useEffect(() => {
@@ -72,6 +80,23 @@ export default function NutriDashboard() {
       setError(err.message || 'Falha ao salvar plano.');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const sendFeedback = async (registroId) => {
+    const texto = (feedbackDrafts[registroId] || '').trim();
+    if (!texto) return;
+    setSendingFeedback(registroId);
+    setError('');
+    try {
+      await nutriApi.sendFeedback(registroId, texto);
+      setFeedbackDrafts((prev) => ({ ...prev, [registroId]: '' }));
+      const hist = await nutriApi.history(selectedId);
+      setHistory(hist || []);
+    } catch (err) {
+      setError(err.message || 'Falha ao enviar feedback.');
+    } finally {
+      setSendingFeedback('');
     }
   };
 
@@ -131,7 +156,29 @@ export default function NutriDashboard() {
                 <div key={r.id} className="history-item">
                   <div><strong>{r.tipo || 'refeição'}</strong> · {new Date(r.created_at).toLocaleString('pt-BR')}</div>
                   <div>{r.descricao || 'Sem descrição.'}</div>
-                  <div className="muted">Feedbacks: {r.feedbacks?.length || 0}</div>
+                  {r.foto_url && (
+                    <img src={r.foto_url} alt="Refeição" className="meal-img" />
+                  )}
+                  {(r.feedbacks?.length || 0) > 0 ? (
+                    <div className="feedback-box">
+                      <strong>Feedback:</strong> {r.feedbacks[0].comentario || r.feedbacks[0].texto}
+                    </div>
+                  ) : (
+                    <div className="feedback-form">
+                      <input
+                        value={feedbackDrafts[r.id] || ''}
+                        onChange={(e) => setFeedbackDrafts((prev) => ({ ...prev, [r.id]: e.target.value }))}
+                        placeholder="Comentário + emojis (ex: Ótimo prato 👏🥗)"
+                      />
+                      <button
+                        className="btn"
+                        onClick={() => sendFeedback(r.id)}
+                        disabled={sendingFeedback === r.id}
+                      >
+                        {sendingFeedback === r.id ? 'Enviando...' : 'Enviar'}
+                      </button>
+                    </div>
+                  )}
                 </div>
               ))}
             </div>

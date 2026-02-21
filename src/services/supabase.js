@@ -20,6 +20,16 @@ function buildInviteCode(userId) {
   return `NUTRI-${String(userId || '').slice(0, 6).toUpperCase()}`;
 }
 
+async function fileToDataUrl(file) {
+  if (!file) return null;
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+}
+
 async function ensureProfile(user, forcedRole = null) {
   assertSupabaseConfigured();
   if (!user?.id) return null;
@@ -276,6 +286,21 @@ export const nutriApi = {
       .single();
 
     if (error) throw new Error(error.message);
+
+    const { data: pacienteProfile } = await supabase
+      .from('pacientes')
+      .select('profile_id')
+      .eq('id', pacienteId)
+      .maybeSingle();
+
+    if (pacienteProfile?.profile_id) {
+      await supabase.from('notificacoes').insert({
+        user_target: pacienteProfile.profile_id,
+        titulo: 'Plano atualizado',
+        mensagem: 'Sua nutricionista atualizou seu plano alimentar.'
+      });
+    }
+
     return data;
   },
 
@@ -289,6 +314,49 @@ export const nutriApi = {
 
     if (error) throw new Error(error.message);
     return data || [];
+  },
+
+  async sendFeedback(registroId, texto) {
+    assertSupabaseConfigured();
+    const me = await this.me();
+    if (!me?.id) throw new Error('Nutricionista não encontrada.');
+    if (!texto?.trim()) throw new Error('Digite um comentário.');
+
+    const { data, error } = await supabase
+      .from('feedbacks')
+      .insert({
+        registro_id: registroId,
+        nutricionista_id: me.id,
+        comentario: texto.trim()
+      })
+      .select('*')
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    const { data: registro } = await supabase
+      .from('registros_refeicoes')
+      .select('paciente_id')
+      .eq('id', registroId)
+      .maybeSingle();
+
+    if (registro?.paciente_id) {
+      const { data: pacienteProfile } = await supabase
+        .from('pacientes')
+        .select('profile_id')
+        .eq('id', registro.paciente_id)
+        .maybeSingle();
+
+      if (pacienteProfile?.profile_id) {
+        await supabase.from('notificacoes').insert({
+          user_target: pacienteProfile.profile_id,
+          titulo: 'Feedback da nutricionista',
+          mensagem: 'Você recebeu um novo comentário na refeição.'
+        });
+      }
+    }
+
+    return data;
   }
 };
 
@@ -339,5 +407,116 @@ export const pacienteApi = {
 
     if (error) throw new Error(error.message);
     return data || [];
+  },
+
+  async sendMeal({ tipo, descricao, arquivo }) {
+    assertSupabaseConfigured();
+    const me = await this.me();
+    if (!me?.id) throw new Error('Perfil de paciente não encontrado.');
+
+    const fotoUrl = await fileToDataUrl(arquivo);
+
+    const { data, error } = await supabase
+      .from('registros_refeicoes')
+      .insert({
+        paciente_id: me.id,
+        nutricionista_id: me.id_nutricionista,
+        tipo: tipo || 'almoco',
+        descricao: descricao || '',
+        foto_url: fotoUrl
+      })
+      .select('*')
+      .single();
+
+    if (error) throw new Error(error.message);
+
+    if (me.id_nutricionista) {
+      const { data: nutriProfile } = await supabase
+        .from('nutricionistas')
+        .select('profile_id')
+        .eq('id', me.id_nutricionista)
+        .maybeSingle();
+
+      if (nutriProfile?.profile_id) {
+        await supabase.from('notificacoes').insert({
+          user_target: nutriProfile.profile_id,
+          titulo: 'Nova refeição enviada',
+          mensagem: 'Paciente enviou uma refeição para análise.'
+        });
+      }
+    }
+
+    return data;
+  }
+};
+
+export const notificacoesApi = {
+  async list(limit = 15) {
+    assertSupabaseConfigured();
+    const user = await authApi.currentUser();
+    if (!user) return [];
+
+    const { data, error } = await supabase
+      .from('notificacoes')
+      .select('*')
+      .eq('user_target', user.id)
+      .order('created_at', { ascending: false })
+      .limit(limit);
+
+    if (error) throw new Error(error.message);
+    return data || [];
+  },
+
+  async countUnread() {
+    assertSupabaseConfigured();
+    const user = await authApi.currentUser();
+    if (!user) return 0;
+
+    const { count, error } = await supabase
+      .from('notificacoes')
+      .select('*', { head: true, count: 'exact' })
+      .eq('user_target', user.id)
+      .eq('lida', false);
+
+    if (error) throw new Error(error.message);
+    return count || 0;
+  },
+
+  async markAllRead() {
+    assertSupabaseConfigured();
+    const user = await authApi.currentUser();
+    if (!user) return;
+
+    const { error } = await supabase
+      .from('notificacoes')
+      .update({ lida: true })
+      .eq('user_target', user.id)
+      .eq('lida', false);
+
+    if (error) throw new Error(error.message);
+  },
+
+  async subscribe(onInsert) {
+    assertSupabaseConfigured();
+    const user = await authApi.currentUser();
+    if (!user) return { unsubscribe: () => {} };
+
+    const channel = supabase
+      .channel(`notificacoes_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'notificacoes',
+          filter: `user_target=eq.${user.id}`
+        },
+        (payload) => onInsert?.(payload.new)
+      )
+      .subscribe();
+
+    return {
+      unsubscribe: () => supabase.removeChannel(channel)
+    };
   }
 };
